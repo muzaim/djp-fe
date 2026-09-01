@@ -1,14 +1,14 @@
 // 1
 export const adminTI = [
-  { heading: 'User Management' },
+  { heading: 'User Manajemen' },
   {
-    title: 'User',
+    title: 'User Manajemen',
     icon: { icon: 'tabler-users' },
     children: [
-      { title: 'Users', to: 'user-management-user-list' },
-      { title: 'Roles', to: 'user-management-roles-list' },
-      { title: 'Struktural', to: 'user-management-struktural-list' },
-      { title: 'Struktur Organisasi', to: 'user-management-struktur-organisasi-list' },
+      { title: 'Struktur Organisasi', to: 'user-management-struktur-organisasi-list', icon: { icon: 'tabler-sitemap' } },
+      { title: 'Fungsi', to: 'user-management-struktural-list', icon: { icon: 'tabler-subtask' } },
+      { title: 'User', to: 'user-management-user-list', icon: { icon: 'tabler-user' } },
+      { title: 'Role', to: 'user-management-roles-list', icon: { icon: 'tabler-shield-check' } },
 
     ],
   },

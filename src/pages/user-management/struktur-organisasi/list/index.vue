@@ -1,245 +1,118 @@
 <script setup lang="ts">
-import { VDataTableServer } from 'vuetify/labs/VDataTable'
-import AddNewMasterSODrawer from '@/views/user-management/master-so/AddNewData.vue'
-import type { DataProperties } from '@/views/user-management/master-so/types'
-import { paginationMeta } from '@api-utils/paginationMeta'
+import { VDataTable } from 'vuetify/labs/VDataTable'
+import AddNewOrgUnitDrawer from '@/views/user-management/struktur-organisasi/AddNewOrgUnitDrawer.vue'
+import OrgChartDialog from '@/views/user-management/struktur-organisasi/OrgChartDialog.vue'
 
-// 👉 Store
-const searchQuery = ref('')
-const resData = ref<any>([])
-const totalData = ref(0)
-const idDelete = ref(0)
-const masterSOData = ref<DataProperties>()
+const {
+  orgUnits,
+  treeRoots,
+  totalOrgUnits,
+  isLoading,
+  searchQuery,
+  isSnackbarVisible,
+  snackBarText,
+  snackBarColour,
+  isAddNewDrawerVisible,
+  isConfirmDialogOpen,
+  isChartDialogOpen,
+  detailData,
+  addData,
+  selectData,
+  submitProcess,
+  updateDeleteData,
+  deleteData,
+} = useOrgStructure()
 
-// Data table options
-const itemsPerPage = ref(10)
-const page = ref(1)
-const sortBy = ref('ASC')
-const orderBy = ref('parent_id')
-
-const isSnackbarVisible = ref(false)
-const snackBarText = ref('')
-const snackBarColour = ref('')
-
-// Update data table options
-const updateOptions = (options: any) => {
-  page.value = options.page
-
-  if (options.sortBy[0]?.key)
-    sortBy.value = options.sortBy[0]?.key
-  else
-    sortBy.value = 'id'
-
-  if (options.sortBy[0]?.order)
-    orderBy.value = options.sortBy[0]?.order.toUpperCase()
-  else
-    orderBy.value = 'ASC'
-}
-
-// Headers
+// Headers for Struktur Organisasi
 const headers = [
   { title: 'No', key: 'index', sortable: false },
-  { title: 'Name', key: 'name' },
-  { title: 'Parent Name', key: 'struct_name' },
-  { title: 'Code', key: 'code' },
+  { title: 'Nama Unit Organisasi', key: 'name' },
+  { title: 'Level Type', key: 'levelType' },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
 
-// 👉 Fetching users
-const fetchMasterSO = async () => {
-  await $api(`admin/master/getallmasterso?page=${page.value}&limit=${itemsPerPage.value}&orderby=id_msso&term=`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-    onResponse({ response }: any) {
-      if (response._data.statusCode === 200) {
-        resData.value = response._data.data.data.map(
-          (items: any, index: number) => ({
-            ...items,
-            index: (page.value - 1) * itemsPerPage.value + index + 1,
-          }))
-      }
-      totalData.value = response._data.data.totalItems
-      console.log(resData.value)
-    },
-
-    onResponseError({ response }) {
-      console.log(response)
-    },
-  })
-}
-
-const isAddNewMasterSODrawerVisible = ref(false)
-const isConfirmDialogOpen = ref(false)
-
-const addData = () => {
-  masterSOData.value = {
-    id_msso: '',
-    name: '',
-    description: '',
-    code: '',
-    struct_id: '',
+// Level type color chips
+const getLevelColor = (levelType: string) => {
+  switch (levelType) {
+    case 'COMPANY': return 'purple'
+    case 'DIRECTORATE': return 'primary'
+    case 'DIVISION': return 'success'
+    case 'DEPARTMENT': return 'warning'
+    case 'SECTION': return 'info'
+    default: return 'secondary'
   }
-  isAddNewMasterSODrawerVisible.value = true
 }
 
-// 👉 Add new data or edit data
-const submitProcess = async (dataDetail: any) => {
-  const formData = new FormData()
-
-  for (const key in dataDetail) {
-    if (Object.hasOwnProperty.call(dataDetail, key))
-      formData.append(key, dataDetail[key])
+// Indonesian Level Labels
+const getLevelLabel = (levelType: string) => {
+  switch (levelType) {
+    case 'COMPANY': return 'Perusahaan'
+    case 'DIRECTORATE': return 'Direktorat'
+    case 'DIVISION': return 'Divisi'
+    case 'DEPARTMENT': return 'Bagian'
+    case 'SECTION': return 'Seksi'
+    default: return levelType
   }
-
-  const id = (dataDetail.id_msso !== null && dataDetail.id_msso !== undefined) ? dataDetail.id_msso : ''
-
-  if (id === '' || Number(id) === 0) {
-    try {
-      await $api('admin/master/createmasterso', {
-        method: 'POST',
-        body: formData,
-        onResponse(response) {
-          console.log(response)
-          snackBarText.value = 'Success, Add new data!'
-          snackBarColour.value = 'primary'
-          isSnackbarVisible.value = true
-        },
-        onResponseError({ response }) {
-          console.log(response)
-          snackBarText.value = 'Error, Please check your input & connection!'
-          snackBarColour.value = 'error'
-          isSnackbarVisible.value = true
-        },
-      })
-    }
-    catch (err) {
-      console.error(err)
-      snackBarText.value = 'Error, Please check your connection!'
-      snackBarColour.value = 'error'
-      isSnackbarVisible.value = true
-
-      return false
-    }
-  }
-  else {
-    try {
-      await $api(`admin/master/updatemasterso/${id}`, {
-        method: 'POST',
-        body: formData,
-        onResponse(response) {
-          console.log(response)
-          snackBarText.value = 'Success, Update your data!'
-          snackBarColour.value = 'primary'
-          isSnackbarVisible.value = true
-        },
-        onResponseError({ response }) {
-          console.log(response)
-          snackBarText.value = 'Error, Please check your connection!'
-          snackBarColour.value = 'error'
-          isSnackbarVisible.value = true
-        },
-      })
-    }
-    catch (err) {
-      console.error(err)
-      snackBarText.value = 'Error, Please check your connection'
-      snackBarColour.value = 'error'
-      isSnackbarVisible.value = true
-
-      return false
-    }
-  }
-
-  // refetch Data
-  fetchMasterSO()
 }
-
-const selectData = async (id: number) => {
-  const res = await $api(`admin/master/getdetailmasterso/${id}`, {
-    method: 'GET',
-    onResponseError({ response }) {
-      console.log(response)
-    },
-  })
-
-  masterSOData.value = res.data
-}
-
-const updateDeleteData = (id: number) => {
-  idDelete.value = id
-}
-
-// 👉 Delete data
-const deleteData = async (confirm: boolean) => {
-  const id = idDelete.value
-  if (confirm) {
-    await $api(`admin/master/deletemasterso/${id}`, {
-      method: 'POST',
-      onResponseError({ response }) {
-        console.log(response)
-      },
-    })
-  }
-
-  // refetch Data
-  // TODO: Make this async
-  fetchMasterSO()
-  idDelete.value = 0
-}
-
-watch(itemsPerPage, () => {
-  fetchMasterSO()
-})
-watch(page, () => {
-  fetchMasterSO()
-})
-watch(searchQuery, () => {
-  fetchMasterSO()
-})
-
-onMounted(() => {
-  fetchMasterSO()
-})
 </script>
 
 <template>
   <section>
-    <VCard>
-      <VCardText class="d-flex flex-wrap py-4 gap-4">
-        <div class="me-3 d-flex gap-3">
-          <AppSelect
-            :model-value="itemsPerPage"
-            :items="[
-              { value: 10, title: '10' },
-              { value: 25, title: '25' },
-              { value: 50, title: '50' },
-              { value: 100, title: '100' },
-              { value: -1, title: 'All' },
-            ]"
-            style="inline-size: 6.25rem;"
-            @update:model-value="itemsPerPage = parseInt($event, 10)"
+    <!-- 👉 Top Banner Card -->
+    <VCard class="mb-6">
+      <VCardText class="d-flex align-center gap-4 pa-5">
+        <VAvatar
+          size="48"
+          color="primary"
+          variant="tonal"
+          class="rounded"
+        >
+          <VIcon
+            size="28"
+            icon="tabler-sitemap"
+          />
+        </VAvatar>
+        <div>
+          <h4 class="text-h5 font-weight-semibold mb-0">
+            Struktur Organisasi
+          </h4>
+          <span class="text-subtitle-2 text-disabled">
+            Kelola hirarki struktur organisasi (Perusahaan, Direktorat, Divisi, Departemen, dan Seksi)
+          </span>
+        </div>
+      </VCardText>
+    </VCard>
+
+    <!-- 👉 Data Table Card -->
+    <VCard :loading="isLoading">
+      <VCardText class="d-flex flex-wrap py-4 gap-4 align-center">
+        <!-- 👉 Search Input (Far Left) -->
+        <div style="inline-size: 16rem;">
+          <AppTextField
+            v-model="searchQuery"
+            placeholder="Cari unit organisasi..."
+            density="compact"
           />
         </div>
+
         <VSpacer />
 
-        <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
-          <!-- 👉 Search  -->
-          <div style="inline-size: 10rem;">
-            <AppTextField
-              v-model="searchQuery"
-              placeholder="Search"
-              density="compact"
-            />
-          </div>
+        <!-- 👉 Action Buttons (Far Right) -->
+        <div class="d-flex align-center flex-wrap gap-4">
+          <!-- 👉 View Org Chart Button -->
+          <VBtn
+            prepend-icon="tabler-hierarchy-2"
+            @click="isChartDialogOpen = true"
+          >
+            Lihat Bagan
+          </VBtn>
 
-          <!-- 👉 Add user button -->
+          <!-- 👉 Add button -->
           <VBtn
             prepend-icon="tabler-plus"
             @click="addData"
           >
-            Add
+            Tambah Unit
           </VBtn>
         </div>
       </VCardText>
@@ -247,86 +120,108 @@ onMounted(() => {
       <VDivider />
 
       <!-- SECTION datatable -->
-      <VDataTableServer
-        v-model:items-per-page="itemsPerPage"
-        v-model:page="page"
-        :items="resData"
-        :items-length="totalData"
+      <VDataTable
+        :items="orgUnits"
         :headers="headers"
+        :items-per-page="999999"
         class="text-no-wrap"
-        @update:options="updateOptions"
       >
-        <!-- Actions -->
-        <template #item.actions="{ item }">
-          <IconBtn @click="selectData(item.id_msso);isAddNewMasterSODrawerVisible = !isAddNewMasterSODrawerVisible">
-            <VIcon icon="tabler-edit" />
-          </IconBtn>
-          <IconBtn @click="updateDeleteData(item.id_msso); isConfirmDialogOpen = true">
-            <VIcon icon="tabler-trash" />
-          </IconBtn>
-        </template>
-
-        <!-- pagination -->
-        <template #bottom>
-          <VDivider />
-          <div class="d-flex align-center justify-sm-space-between justify-center flex-wrap gap-3 pa-5 pt-3">
-            <p class="text-sm text-disabled mb-0">
-              {{ paginationMeta({ page, itemsPerPage }, totalData) }}
-            </p>
-
-            <VPagination
-              v-model="page"
-              :length="Math.ceil(totalData / itemsPerPage)"
-              :total-visible="6"
+        <!-- Name with rightward depth indentation -->
+        <template #item.name="{ item }">
+          <div
+            class="d-flex align-center"
+            :style="{ paddingLeft: `${(item.raw?.depth ?? item.depth ?? 0) * 1.5}rem` }"
+          >
+            <span
+              v-if="(item.raw?.depth ?? item.depth ?? 0) > 0"
+              class="text-disabled me-2 font-weight-bold"
             >
-              <template #prev="slotProps">
-                <VBtn
-                  variant="tonal"
-                  color="default"
-                  v-bind="slotProps"
-                  :icon="false"
-                >
-                  Previous
-                </VBtn>
-              </template>
-
-              <template #next="slotProps">
-                <VBtn
-                  variant="tonal"
-                  color="default"
-                  v-bind="slotProps"
-                  :icon="false"
-                >
-                  Next
-                </VBtn>
-              </template>
-            </VPagination>
+              └─
+            </span>
+            <span
+              class="font-weight-medium"
+              :class="(item.raw?.levelType || item.levelType) === 'COMPANY' ? 'text-primary font-weight-bold text-base' : 'text-high-emphasis'"
+            >
+              {{ item.raw?.name || item.name || '-' }}
+            </span>
           </div>
         </template>
-      </VDataTableServer>
+
+        <!-- Level Type Chip -->
+        <template #item.levelType="{ item }">
+          <VChip
+            label
+            size="small"
+            :color="getLevelColor(item.raw?.levelType || item.levelType)"
+            class="font-weight-medium"
+          >
+            {{ getLevelLabel(item.raw?.levelType || item.levelType) }}
+          </VChip>
+        </template>
+
+        <!-- Actions -->
+        <template #item.actions="{ item }">
+          <!-- Protect Company level from edit/delete -->
+          <template v-if="(item.raw?.levelType || item.levelType) !== 'COMPANY'">
+            <IconBtn
+              title="Edit Unit"
+              @click="selectData(item.raw?.id || item.id)"
+            >
+              <VIcon icon="tabler-edit" />
+            </IconBtn>
+
+            <IconBtn
+              title="Hapus Unit"
+              @click="updateDeleteData(item.raw?.id || item.id); isConfirmDialogOpen = true"
+            >
+              <VIcon icon="tabler-trash" />
+            </IconBtn>
+          </template>
+          <span
+            v-else
+            class="text-xs text-disabled"
+          >-</span>
+        </template>
+
+        <!-- Hide default pagination bottom bar since all items are shown -->
+        <template #bottom>
+          <VDivider />
+          <div class="pa-4 text-xs text-disabled text-end">
+            Total Unit Organisasi: {{ totalOrgUnits }}
+          </div>
+        </template>
+      </VDataTable>
       <!-- SECTION -->
     </VCard>
-    <!-- 👉 Add New User -->
 
-    <AddNewMasterSODrawer
-      v-model:isDrawerOpen="isAddNewMasterSODrawerVisible"
-      v-model:so-data="masterSOData"
+    <!-- 👉 Add/Edit Drawer -->
+    <AddNewOrgUnitDrawer
+      v-model:isDrawerOpen="isAddNewDrawerVisible"
+      v-model:org-unit-data="detailData"
       @submit="submitProcess"
     />
 
-    <!-- Confirm Dialog -->
+    <!-- 👉 Bagan Organization Chart Modal Dialog -->
+    <OrgChartDialog
+      v-model:isDialogVisible="isChartDialogOpen"
+      :tree-data="treeRoots"
+    />
+
+    <!-- Confirm Delete Dialog -->
     <ConfirmDialog
       v-model:isDialogVisible="isConfirmDialogOpen"
-      confirmation-question="Are you sure you want to delete this data?"
-      confirm-title="Deleted!"
-      confirm-msg="Your data has been deleted successfully."
-      cancel-title="Cancelled"
-      cancel-msg="Data Deletion Cancelled!"
+      confirmation-question="Apakah Anda yakin ingin menghapus unit organisasi ini?"
+      confirm-title="Terhapus!"
+      confirm-msg="Unit organisasi telah berhasil dihapus."
+      cancel-title="Batal"
+      cancel-msg="Penghapusan unit dibatalkan."
+      confirm-btn-text="Ya, Hapus"
+      cancel-btn-text="Batal"
       @confirm="deleteData"
     />
   </section>
 
-  <!-- Snackbar -->
+  <!-- Snackbar Notification -->
   <VSnackbar
     v-model="isSnackbarVisible"
     transition="scroll-y-reverse-transition"

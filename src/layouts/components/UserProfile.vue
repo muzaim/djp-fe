@@ -10,28 +10,12 @@ const accessToken = useCookie<any>('accessToken')
 const userAbilityRules = useCookie<any>('userAbilityRules')
 
 const logout = async () => {
-  // Remove "accessToken" from cookie
-  // const token = useCookie('accessToken').value
-
-  // Remove "userData" from cookie
-
-  // hit logout api
-  // await $api('admin/auth/logout', {
-  //   method: 'GET',
-  //   headers: {
-  //     Authorization: `${token}`,
-  //   },
-  // })
-
   userData.value = null
   accessToken.value = null
   userAbilityRules.value = null
 
   // Redirect to login page
   await router.push('/login')
-
-  // ℹ️ We had to remove abilities in then block because if we don't nav menu items mutation is visible while redirecting user to login page
-  // Remove "userAbilities" from cookie
 
   // Reset ability to initial ability
   ability.update([])
@@ -58,8 +42,8 @@ const downloadManualGuide = () => {
 }
 
 const userProfileList = [
-
-  // { type: 'navItem', icon: 'tabler-user', title: 'Profile', to: { name: 'profile-account-settings' } },
+  { type: 'divider' },
+  { type: 'navItem', icon: 'tabler-lock', title: 'Ubah Password', to: { name: 'profile-change-password' } },
   { type: 'divider' },
   { type: 'navItem', icon: 'tabler-help-circle', title: 'FAQ', to: { name: 'profile-faq' } },
   { type: 'divider' },
@@ -131,6 +115,7 @@ const userProfileList = [
               </template>
               <VListItemTitle>Manual Guide</VListItemTitle>
             </VListItem>
+
             <template
               v-for="item in userProfileList"
               :key="item.title"

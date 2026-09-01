@@ -1,22 +1,12 @@
-@use "@configured-variables" as variables;
-@use "@core/scss/base/mixins";
+// 👉 Vertical Nav Template Mixins & Overrides
 
-.layout-nav-type-vertical {
-  // 👉 Layout Vertical nav
-  .layout-vertical-nav {
-    @include mixins.elevation(2);
+.layout-vertical-nav {
+  // Indent nested sub-menu items to the right
+  .nav-group-children {
+    padding-inline-start: 1rem;
+  }
 
-    .nav-header {
-      .app-logo {
-        .app-title {
-          font-size: 22px;
-        }
-      }
-
-     
-    }
-
-    // 👉 Nav group & Link
+  .nav-group {
     .nav-link,
     .nav-group {
       // shadow cut issue fix

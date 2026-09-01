@@ -1,18 +1,16 @@
 <script setup lang="ts">
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { VForm } from 'vuetify/components/VForm'
-
-import type { UserProperties } from '@/views/user-management/user/types'
+import { OrgStructureService } from '@/services/org-structure.service'
 
 interface Props {
   isDrawerOpen: boolean
-  userData?: UserProperties
+  userData?: any
 }
 
 interface Emit {
   (e: 'update:isDrawerOpen', value: boolean): void
-  (e: 'submit', value: UserProperties): void
+  (e: 'submit', value: any): void
 }
 
 interface SelectOption {
@@ -21,112 +19,203 @@ interface SelectOption {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  userData: () => ({
-    id: 0,
-    username: '',
-    full_name: '',
-    email: '',
-    phone: '',
-    id_msso: '',
-    id_roles: '',
-  }),
+  userData: null,
 })
 
 const emit = defineEmits<Emit>()
 
-// 👉 List Option
-const listParent = ref<SelectOption[]>([])
+// Canonical single-key default model
+const defaultUserData = {
+  id: '',
+  name: '',
+  email: '',
+  phoneNumber: '',
+  positionId: '',
+  roleId: '',
+}
+
+const listDivisions = ref<SelectOption[]>([])
+const listPositions = ref<SelectOption[]>([])
 const listRoles = ref<SelectOption[]>([])
 
-const userData = ref<UserProperties>(structuredClone(toRaw(props.userData)))
+const selectedDivisionId = ref<string>('')
+const userData = ref<any>({ ...defaultUserData })
 
 const isFormValid = ref(false)
 const refForm = ref<VForm>()
-const loading = ref(false)
-const searchRoles = ref()
-const searchParent = ref()
+const loadingDivisions = ref(false)
+const loadingPositions = ref(false)
+const loadingRoles = ref(false)
 
-// 👉 Fetching divisi
-const fetchParent = async (query: string, limit: number) => {
-  loading.value = true
-
-  const res = await $api(`admin/master/getallmasterso?page=1&limit=${limit}&orderby=id_msso&term=${query}`, {
-    method: 'GET',
-    onResponseError({ response }) {
-      console.log(response)
-    },
-  })
-
-  const data = res.data.data
-
-  listParent.value = []
-  data.forEach((value: any, key: any) => {
-    listParent.value[key] = { title: value.name, value: value.id_msso }
-  })
-  loading.value = false
-
-  console.log(listParent.value)
+// 1. Fetch all divisions from GET /organization-units/divisions
+const fetchDivisions = async () => {
+  loadingDivisions.value = true
+  try {
+    const divisions = await OrgStructureService.getDivisions()
+    listDivisions.value = divisions.map(div => ({
+      title: div.name,
+      value: String(div.id),
+    }))
+  }
+  catch (err) {
+    console.error('Fetch divisions error:', err)
+  }
+  finally {
+    loadingDivisions.value = false
+  }
 }
 
-const fetchRoles = async (query: string) => {
-  loading.value = true
+// 2. Fetch positions by Division ID from GET /positions/by-division/:divisionId
+const fetchPositionsByDivision = async (divisionId: string) => {
+  if (!divisionId) {
+    listPositions.value = []
+    return
+  }
 
-  const res = await $api(`/admin/master/alluserroles?limit=9999&page=1&sortBy=ASC&orderBy=id_roles&term=${query}`, {
-    method: 'GET',
-    onResponseError({ response }) {
-      console.log(response)
-    },
-  })
-
-  const data = res.data.data
-
-  listRoles.value = []
-  data.forEach((value: any, key: any) => {
-    listRoles.value[key] = { title: value.role_name, value: value.id_roles }
-  })
-
-  loading.value = false
+  loadingPositions.value = true
+  try {
+    const positions = await OrgStructureService.getPositionsByDivision(divisionId)
+    listPositions.value = positions.map(pos => ({
+      title: pos.title,
+      value: String(pos.id),
+    }))
+  }
+  catch (err) {
+    console.error('Fetch positions by division error:', err)
+    listPositions.value = []
+  }
+  finally {
+    loadingPositions.value = false
+  }
 }
 
-watch(searchRoles, query => {
-  query && query !== userData.value?.id_msso && fetchParent(query, 100)
+// 3. Fetch roles from GET /roles
+const fetchRoles = async () => {
+  loadingRoles.value = true
+  try {
+    const res = await $api('/roles', {
+      method: 'GET',
+      params: { limit: 100 },
+    })
+
+    const payload = res?.data || res
+    const items = payload?.items || (Array.isArray(payload) ? payload : [])
+
+    listRoles.value = items.map((item: any) => ({
+      title: item.name || item.code || 'Role',
+      value: String(item.id),
+    }))
+  }
+  catch (err) {
+    console.error('Fetch roles error:', err)
+  }
+  finally {
+    loadingRoles.value = false
+  }
+}
+
+// Handle manual user interaction on Division dropdown change
+const handleDivisionChange = async (newDivisionId: string) => {
+  userData.value.positionId = ''
+
+  if (newDivisionId) {
+    await fetchPositionsByDivision(newDivisionId)
+  }
+  else {
+    listPositions.value = []
+  }
+}
+
+// Populate user data deterministically when editing using position.division object
+const populateUserForEdit = async (user: any) => {
+  const divisionId = user.position?.division?.id
+    || user.position?.organizationUnit?.parent?.id
+    || (user.position?.organizationUnit?.levelType === 'DIVISION' ? user.position?.organizationUnit?.id : '')
+    || ''
+
+  const positionId = user.positionId || user.position?.id || ''
+  const roleId = user.roleIds?.[0] || user.userRoles?.[0]?.roleId || user.userRoles?.[0]?.role?.id || ''
+
+  // Pre-load divisions & roles if not loaded
+  if (listDivisions.value.length === 0) {
+    await fetchDivisions()
+  }
+  if (listRoles.value.length === 0) {
+    await fetchRoles()
+  }
+
+  // Pre-fetch positions for division
+  if (divisionId) {
+    await fetchPositionsByDivision(divisionId)
+  }
+
+  // Set canonical models
+  selectedDivisionId.value = divisionId
+  userData.value = {
+    id: user.id,
+    name: user.name || user.full_name || '',
+    email: user.email || '',
+    phoneNumber: user.phoneNumber || user.phone || '',
+    positionId,
+    roleId,
+  }
+}
+
+// Watch props.userData for Edit vs Add
+watch(
+  () => props.userData,
+  async newVal => {
+    if (newVal && newVal.id) {
+      const rawVal = structuredClone(toRaw(newVal))
+      await populateUserForEdit(rawVal)
+    }
+    else {
+      userData.value = { ...defaultUserData }
+      selectedDivisionId.value = ''
+      listPositions.value = []
+    }
+  },
+  { immediate: true, deep: true },
+)
+
+onMounted(async () => {
+  await Promise.all([fetchDivisions(), fetchRoles()])
 })
 
-watch(props, () => {
-  userData.value = structuredClone(toRaw(props.userData))
-})
-
-onMounted(() => {
-  fetchParent('', 100)
-  fetchRoles('')
-})
-
-// 👉 drawer close
 const closeNavigationDrawer = () => {
   emit('update:isDrawerOpen', false)
-
   nextTick(() => {
-    refForm.value?.reset()
     refForm.value?.resetValidation()
   })
 }
 
 const onSubmit = () => {
-  refForm.value?.validate().then(({ valid }) => {
-    if (valid) {
-      emit('submit', userData.value)
-      emit('update:isDrawerOpen', false)
-      fetchParent('', 100)
-      nextTick(() => {
-        refForm.value?.reset()
-        refForm.value?.resetValidation()
-      })
+  refForm.value?.validate().then(({ valid, errors }) => {
+    if (!valid) {
+      console.warn('Form validation failed:', errors)
+      return
     }
+
+    const payload = {
+      id: userData.value.id || undefined,
+      name: userData.value.name,
+      email: userData.value.email,
+      phoneNumber: userData.value.phoneNumber || undefined,
+      positionId: userData.value.positionId ? String(userData.value.positionId) : undefined,
+      roleId: userData.value.roleId ? String(userData.value.roleId) : undefined,
+      isActive: true,
+    }
+
+    emit('submit', payload)
   })
 }
 
 const handleDrawerModelValueUpdate = (val: boolean) => {
   emit('update:isDrawerOpen', val)
+  if (!val) {
+    selectedDivisionId.value = ''
+    listPositions.value = []
+  }
 }
 </script>
 
@@ -141,7 +230,7 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
   >
     <!-- 👉 Title -->
     <AppDrawerHeaderSection
-      title="Add User"
+      :title="userData.id ? 'Edit User' : 'Add User'"
       @cancel="closeNavigationDrawer"
     />
 
@@ -158,20 +247,10 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
               <!-- 👉 Full name -->
               <VCol cols="12">
                 <AppTextField
-                  v-model="userData.full_name"
+                  v-model="userData.name"
                   :rules="[requiredValidator]"
                   label="Full Name"
-                  placeholder="Full Name"
-                />
-              </VCol>
-
-              <!-- 👉 Username -->
-              <VCol cols="12">
-                <AppTextField
-                  v-model="userData.username"
-                  :rules="[requiredValidator]"
-                  label="Username"
-                  placeholder="Username"
+                  placeholder="Syafri Surya"
                 />
               </VCol>
 
@@ -181,46 +260,56 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
                   v-model="userData.email"
                   :rules="[requiredValidator, emailValidator]"
                   label="Email"
-                  placeholder="email@email.com"
+                  placeholder="syafri@smf.co.id"
                 />
               </VCol>
 
-              <!-- 👉 Country -->
+              <!-- 👉 Phone -->
               <VCol cols="12">
                 <AppTextField
-                  v-model="userData.phone"
+                  v-model="userData.phoneNumber"
                   label="Phone"
-                  placeholder="Phone"
-                  :rules="[requiredValidator]"
+                  placeholder="08123456789"
                 />
               </VCol>
 
-              <!-- 👉 Parent Group -->
+              <!-- 👉 Select Division (1st level) -->
               <VCol cols="12">
                 <AppAutocomplete
-                  v-model="userData.id_msso"
-                  v-model:search-input="searchParent"
-                  :rules="[requiredValidator]"
-                  :loading="loading"
-                  :items="listParent"
-                  label="Select Parent"
-                  placeholder="Select Parent"
+                  v-model="selectedDivisionId"
+                  :loading="loadingDivisions"
+                  :items="listDivisions"
+                  label="Select Division"
+                  placeholder="Select Division first..."
                   hide-no-data
-                  hide-selected
+                  clearable
+                  @update:model-value="handleDivisionChange"
                 />
               </VCol>
 
+              <!-- 👉 Select Position (2nd level based on Division) -->
               <VCol cols="12">
                 <AppAutocomplete
-                  v-model="userData.id_roles"
-                  v-model:search-input="searchRoles"
-                  :loading="loading"
+                  v-model="userData.positionId"
+                  :loading="loadingPositions"
+                  :items="listPositions"
+                  :disabled="!selectedDivisionId"
                   :rules="[requiredValidator]"
+                  label="Select Position"
+                  placeholder="Select Position..."
+                  hide-no-data
+                />
+              </VCol>
+
+              <!-- 👉 Select Role -->
+              <VCol cols="12">
+                <AppAutocomplete
+                  v-model="userData.roleId"
+                  :loading="loadingRoles"
                   :items="listRoles"
                   label="Select Role"
-                  placeholder="Select Role"
+                  placeholder="Select Role..."
                   hide-no-data
-                  hide-selected
                 />
               </VCol>
 

@@ -48,6 +48,7 @@ declare module 'vue-router/auto/routes' {
     'pages-misc-coming-soon': RouteRecordInfo<'pages-misc-coming-soon', '/pages/misc/coming-soon', Record<never, never>, Record<never, never>>,
     'profile': RouteRecordInfo<'profile', '/profile', Record<never, never>, Record<never, never>>,
     'profile-account-settings-tab': RouteRecordInfo<'profile-account-settings-tab', '/profile/account-settings/:tab', { tab: ParamValue<true> }, { tab: ParamValue<false> }>,
+    'profile-change-password': RouteRecordInfo<'profile-change-password', '/profile/change-password', Record<never, never>, Record<never, never>>,
     'profile-faq': RouteRecordInfo<'profile-faq', '/profile/faq', Record<never, never>, Record<never, never>>,
     'second-page': RouteRecordInfo<'second-page', '/second-page', Record<never, never>, Record<never, never>>,
     'user-management-master-so-list': RouteRecordInfo<'user-management-master-so-list', '/user-management/master-so/list', Record<never, never>, Record<never, never>>,

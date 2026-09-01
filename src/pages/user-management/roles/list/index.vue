@@ -1,219 +1,58 @@
 <script setup lang="ts">
 import { VDataTableServer } from 'vuetify/labs/VDataTable'
-import AddNewRoleDrawer from '@/views/user-management/roles/AddNewData.vue'
-import type { DataProperties } from '@/views/user-management/roles/types'
 import { paginationMeta } from '@api-utils/paginationMeta'
 
-// 👉 Store
-const searchQuery = ref('')
-const resData = ref<any>([])
-const totalData = ref(0)
-const idDelete = ref(0)
-const detailData = ref<DataProperties>()
+const {
+  roles,
+  totalRoles,
+  isLoading,
+  searchQuery,
+  itemsPerPage,
+  page,
+  isSnackbarVisible,
+  snackBarText,
+  snackBarColour,
+} = useRole()
 
-// Data table options
-const itemsPerPage = ref(10)
-const page = ref(1)
-const sortBy = ref('id')
-const orderBy = ref('ASC')
-
-const isSnackbarVisible = ref(false)
-const snackBarText = ref('')
-const snackBarColour = ref('')
-
-// Update data table options
-const updateOptions = (options: any) => {
-  page.value = options.page
-
-  if (options.sortBy[0]?.key)
-    sortBy.value = options.sortBy[0]?.key
-  else
-    sortBy.value = 'id'
-
-  if (options.sortBy[0]?.order)
-    orderBy.value = options.sortBy[0]?.order.toUpperCase()
-  else
-    orderBy.value = 'ASC'
-}
-
-// Headers
+// Read-only Headers for Roles
 const headers = [
   { title: 'No', key: 'index', sortable: false },
-  { title: 'Nama Role', key: 'role_name' },
-  { title: 'Actions', key: 'actions', sortable: false },
+  { title: 'Kode Role', key: 'code' },
+  { title: 'Nama Role', key: 'name' },
+  { title: 'Deskripsi', key: 'description' },
 ]
-
-// 👉 Fetching users
-const fetchRole = async () => {
-  await $api(`/admin/master/alluserroles?limit=${itemsPerPage.value}&page=${page.value}&sortBy=${sortBy.value}&orderBy=${orderBy.value}&term=${searchQuery.value}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    },
-    onResponse({ response }: any) {
-      if (response._data.statusCode === 200) {
-        resData.value = response._data.data.data.map(
-          (items: any, index: number) => ({
-            ...items,
-            index: (page.value - 1) * itemsPerPage.value + index + 1,
-          }))
-      }
-      totalData.value = response._data.data.totalItems
-    },
-
-    onResponseError({ response }) {
-      console.log(response)
-    },
-  })
-}
-
-const isAddNewRoleDrawerVisible = ref(false)
-const isConfirmDialogOpen = ref(false)
-
-const addData = () => {
-  detailData.value = {
-    id_roles: '',
-    role_name: '',
-    description: '',
-    status: '',
-  }
-  isAddNewRoleDrawerVisible.value = true
-}
-
-// 👉 Add new data or edit data
-const submitProcess = async (dataDetail: any) => {
-  const formData = new FormData() // Create a new FormData object
-
-  for (const key in dataDetail) {
-    if (Object.hasOwnProperty.call(dataDetail, key))
-      formData.append(key, dataDetail[key])
-  }
-
-  const idRoles = (dataDetail.id_roles !== null && dataDetail.id_roles !== undefined) ? dataDetail.id_roles : ''
-
-  console.log(idRoles)
-  if (idRoles === '' || Number(idRoles) === 0) {
-    try {
-      await $api('admin/master/createuserroles', {
-        method: 'POST',
-        body: formData,
-        onResponse(response) {
-          console.log(response)
-          snackBarText.value = 'Success, Add new data!'
-          snackBarColour.value = 'primary'
-          isSnackbarVisible.value = true
-        },
-        onResponseError({ response }) {
-          console.log(response)
-          snackBarText.value = 'Error, Please check your input & connection!'
-          snackBarColour.value = 'error'
-          isSnackbarVisible.value = true
-        },
-      })
-    }
-    catch (err) {
-      console.error(err)
-      snackBarText.value = 'Error, Please check your connection!'
-      snackBarColour.value = 'error'
-      isSnackbarVisible.value = true
-
-      return false
-    }
-  }
-  else {
-    try {
-      await $api(`admin/master/updateuserroles/${idRoles}`, {
-        method: 'POST',
-        body: formData,
-        onResponse(response) {
-          console.log(response)
-          snackBarText.value = 'Success, Update your data!'
-          snackBarColour.value = 'primary'
-          isSnackbarVisible.value = true
-        },
-        onResponseError({ response }) {
-          console.log(response)
-          snackBarText.value = 'Error, Please check your connection!'
-          snackBarColour.value = 'error'
-          isSnackbarVisible.value = true
-        },
-      })
-    }
-    catch (err) {
-      console.error(err)
-      snackBarText.value = 'Error, Please check your connection'
-      snackBarColour.value = 'error'
-      isSnackbarVisible.value = true
-
-      return false
-    }
-  }
-
-  // refetch Data
-  fetchRole()
-}
-
-const selectData = async (id: number) => {
-  const res = await $api(`admin/master/getdetailuserroles/${id}`, {
-    method: 'GET',
-    onResponseError({ response }) {
-      console.log(response)
-    },
-  })
-
-  detailData.value = res.data
-}
-
-const updateDeleteData = (id: number) => {
-  idDelete.value = id
-}
-
-// 👉 Delete data
-const deleteData = async (confirm: boolean) => {
-  const id = idDelete.value
-
-  if (confirm) {
-    const formData = new FormData() // Create a new FormData object
-
-    formData.append('status', '0') // Append the status field to the FormData object
-
-    try {
-      await $api(`admin/master/deleteuserroles/${id}`, {
-        method: 'POST',
-        body: formData, // Use formData as the body
-        onResponseError({ response }) {
-          console.log(response)
-        },
-      })
-    }
-    catch (error) {
-      console.error(error)
-    }
-  }
-
-  fetchRole()
-  idDelete.value = 0
-}
-
-watch(itemsPerPage, () => {
-  fetchRole()
-})
-watch(page, () => {
-  fetchRole()
-})
-watch(searchQuery, () => {
-  fetchRole()
-})
-
-onMounted(() => {
-  fetchRole()
-})
 </script>
 
 <template>
   <section>
-    <VCard>
-      <VCardText class="d-flex flex-wrap py-4 gap-4">
+    <!-- 👉 Top Banner Card -->
+    <VCard class="mb-6">
+      <VCardText class="d-flex align-center gap-4 pa-5">
+        <VAvatar
+          size="48"
+          color="primary"
+          variant="tonal"
+          class="rounded"
+        >
+          <VIcon
+            size="28"
+            icon="tabler-shield-check"
+          />
+        </VAvatar>
+        <div>
+          <h4 class="text-h5 font-weight-semibold mb-0">
+            Daftar Role Hak Akses
+          </h4>
+          <span class="text-subtitle-2 text-disabled">
+            Daftar peran dan hak akses pengguna yang terdaftar dalam sistem (Read Only)
+          </span>
+        </div>
+      </VCardText>
+    </VCard>
+
+    <!-- 👉 Data Table Card -->
+    <VCard :loading="isLoading">
+      <VCardText class="d-flex flex-wrap py-4 gap-4 align-center">
         <div class="me-3 d-flex gap-3">
           <AppSelect
             :model-value="itemsPerPage"
@@ -222,7 +61,6 @@ onMounted(() => {
               { value: 25, title: '25' },
               { value: 50, title: '50' },
               { value: 100, title: '100' },
-              { value: -1, title: 'All' },
             ]"
             style="inline-size: 6.25rem;"
             @update:model-value="itemsPerPage = parseInt($event, 10)"
@@ -232,46 +70,49 @@ onMounted(() => {
 
         <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
           <!-- 👉 Search  -->
-          <div style="inline-size: 10rem;">
+          <div style="inline-size: 16rem;">
             <AppTextField
               v-model="searchQuery"
-              placeholder="Search"
+              placeholder="Cari role hak akses..."
               density="compact"
             />
           </div>
-
-          <!-- 👉 Add user button -->
-
-          <VBtn
-            prepend-icon="tabler-plus"
-            @click="addData"
-          >
-            Add
-          </VBtn>
         </div>
       </VCardText>
 
       <VDivider />
 
-      <!-- SECTION datatable -->
+      <!-- SECTION Read-Only DatatableServer -->
       <VDataTableServer
         v-model:items-per-page="itemsPerPage"
         v-model:page="page"
-        :items="resData"
-        :items-length="totalData"
+        :items="roles"
+        :items-length="totalRoles"
         :headers="headers"
         class="text-no-wrap"
-        @update:options="updateOptions"
       >
-        <!-- Actions -->
-        <template #item.actions="{ item }">
-          <IconBtn @click="selectData(item.id_roles);isAddNewRoleDrawerVisible = !isAddNewRoleDrawerVisible">
-            <VIcon icon="tabler-edit" />
-          </IconBtn>
+        <!-- Code -->
+        <template #item.code="{ item }">
+          <span class="font-weight-medium text-high-emphasis">
+            {{ item.raw?.code || item.code || '-' }}
+          </span>
+        </template>
 
-          <IconBtn @click="updateDeleteData(item.id_roles); isConfirmDialogOpen = true">
-            <VIcon icon="tabler-trash" />
-          </IconBtn>
+        <!-- Name as Chip -->
+        <template #item.name="{ item }">
+          <VChip
+            label
+            size="small"
+            color="primary"
+            class="text-capitalize font-weight-medium"
+          >
+            {{ item.raw?.name || item.name || '-' }}
+          </VChip>
+        </template>
+
+        <!-- Description -->
+        <template #item.description="{ item }">
+          <span>{{ item.raw?.description || item.description || '-' }}</span>
         </template>
 
         <!-- pagination -->
@@ -279,12 +120,12 @@ onMounted(() => {
           <VDivider />
           <div class="d-flex align-center justify-sm-space-between justify-center flex-wrap gap-3 pa-5 pt-3">
             <p class="text-sm text-disabled mb-0">
-              {{ paginationMeta({ page, itemsPerPage }, totalData) }}
+              {{ paginationMeta({ page, itemsPerPage }, totalRoles) }}
             </p>
 
             <VPagination
               v-model="page"
-              :length="Math.ceil(totalData / itemsPerPage)"
+              :length="Math.ceil(totalRoles / itemsPerPage) || 1"
               :total-visible="6"
             >
               <template #prev="slotProps">
@@ -314,27 +155,9 @@ onMounted(() => {
       </VDataTableServer>
       <!-- SECTION -->
     </VCard>
-    <!-- 👉 Add New User -->
-
-    <AddNewRoleDrawer
-      v-model:isDrawerOpen="isAddNewRoleDrawerVisible"
-      v-model:roles-data="detailData"
-      @submit="submitProcess"
-    />
-
-    <!-- Confirm Dialog -->
-    <ConfirmDialog
-      v-model:isDialogVisible="isConfirmDialogOpen"
-      confirmation-question="Are you sure you want to delete this data?"
-      confirm-title="Deleted!"
-      confirm-msg="Your data has been deleted successfully."
-      cancel-title="Cancelled"
-      cancel-msg="Data Deletion Cancelled!"
-      @confirm="deleteData"
-    />
   </section>
 
-  <!-- Snackbar -->
+  <!-- Snackbar Notification -->
   <VSnackbar
     v-model="isSnackbarVisible"
     transition="scroll-y-reverse-transition"

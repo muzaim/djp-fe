@@ -1,268 +1,76 @@
 <script setup lang="ts">
 import { VDataTableServer } from 'vuetify/labs/VDataTable'
-import AddNewStrukturalDrawer from '@/views/user-management/struktural/AddNewStrukturalDrawer.vue'
-import type { StrukturalProperties } from '@/views/user-management/struktural/types'
+import AddNewPositionDrawer from '@/views/user-management/struktural/AddNewPositionDrawer.vue'
 import { paginationMeta } from '@api-utils/paginationMeta'
 
-// 👉 Store
-const searchQuery = ref('')
-const resData = ref<any>([])
-const totalData = ref(0)
-const idDelete = ref(0)
-const detailData = ref<StrukturalProperties>()
+const {
+  positions,
+  totalPositions,
+  isLoading,
+  searchQuery,
+  itemsPerPage,
+  page,
+  isSnackbarVisible,
+  snackBarText,
+  snackBarColour,
+  isAddNewDrawerVisible,
+  isConfirmDialogOpen,
+  detailData,
+  addData,
+  selectData,
+  submitProcess,
+  updateDeleteData,
+  deleteData,
+} = usePosition()
 
-// Data table options
-const itemsPerPage = ref(100)
-const page = ref(1)
-const sortBy = ref('id')
-const orderBy = ref('ASC')
-
-const isSnackbarVisible = ref(false)
-const snackBarText = ref('')
-const snackBarColour = ref('')
-
-// Update data table options
-const updateOptions = (options: any) => {
-  page.value = options.page
-
-  if (options.sortBy[0]?.key)
-    sortBy.value = options.sortBy[0]?.key
-  else
-    sortBy.value = 'id'
-
-  if (options.sortBy[0]?.order)
-    orderBy.value = options.sortBy[0]?.order.toUpperCase()
-  else
-    orderBy.value = 'ASC'
-}
-
-// Headers
+// Headers for Daftar Fungsi
 const headers = [
   { title: 'No', key: 'index', sortable: false },
-  { title: 'Nama Struktural', key: 'description' },
-  { title: 'Code', key: 'code' },
+  { title: 'Nama Fungsi', key: 'title' },
+  { title: 'Divisi', key: 'division' },
+  { title: 'Unit Organisasi', key: 'organizationUnit.name' },
+  { title: 'Job Level', key: 'jobLevel.name' },
+  { title: 'Atasan Langsung', key: 'parentPosition.title' },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
 
-const buildHierarchy = (data: any) => {
-  const map = {}
-  const roots = []
-
-  // Create a map of nodes by ID
-  data.forEach(item => {
-    map[item.id] = { ...item, children: [] }
-  })
-
-  // Assign children to their respective parents
-  data.forEach(item => {
-    if (item.struct_id === 0) {
-      roots.push(map[item.id])
-    }
-    else {
-      const parent = map[item.struct_id]
-      if (parent)
-        parent.children.push(map[item.id])
-    }
-  })
-
-  const flattenHierarchy = (nodes, accumulator = [], indentLevel = 0) => {
-    nodes.forEach(node => {
-      accumulator.push({ ...node, indentLevel })
-      if (node.children.length > 0)
-        flattenHierarchy(node.children, accumulator, indentLevel + 1)
-    })
-  }
-
-  const flatHierarchy = []
-
-  flattenHierarchy(roots, flatHierarchy)
-
-  return flatHierarchy
+// Extract division name directly from position.division object
+const getDivisionName = (posItem: any) => {
+  const item = posItem?.raw || posItem
+  return item?.division?.name || '-'
 }
-
-const structuredData = computed(() => buildHierarchy(resData.value))
-
-const paginatedData = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  const end = page.value * itemsPerPage.value
-
-  return structuredData.value.slice(start, end)
-})
-
-// 👉 Fetching users
-const fetchStructurural = async () => {
-  await $api(
-    `/admin/master/getallstruktural?limit=${itemsPerPage.value}&page=${page.value}&sortBy=${sortBy.value}&orderBy=${orderBy.value}&term=${searchQuery.value}`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-      onResponse({ response }) {
-        if (response._data.statusCode === 200) {
-          resData.value = response._data.data.data.map((item, index) => {
-            // Change struct_id of the first item (index 0) to 0
-            if (index === 0)
-              item.struct_id = 0
-
-            return {
-              ...item,
-              index: (page.value - 1) * itemsPerPage.value + index + 1,
-            }
-          })
-
-          totalData.value = response._data.data.totalItems
-          console.log(resData.value)
-        }
-      },
-      onResponseError({ response }) {
-        console.log(response)
-      },
-    },
-  )
-}
-
-// 👉 search filters
-
-const isAddNewStrukturalDrawerVisible = ref(false)
-const isConfirmDialogOpen = ref(false)
-
-const addData = () => {
-  detailData.value = {
-    id: 0,
-    code: '',
-    description: '',
-    struct_id: '',
-  }
-  isAddNewStrukturalDrawerVisible.value = true
-}
-
-// 👉 Add new data or edit data
-const submitProcess = async (dataDetail: any) => {
-  const formData = new FormData() // Create a new FormData object
-
-  for (const key in dataDetail) {
-    if (Object.hasOwnProperty.call(dataDetail, key))
-      formData.append(key, dataDetail[key])
-  }
-
-  const id = (dataDetail.id !== null && dataDetail.id !== undefined) ? dataDetail.id : ''
-
-  if (id === '' || Number(id) === 0) {
-    try {
-      await $api('admin/master/createstruktural', {
-        method: 'POST',
-        body: formData,
-        onResponse(response) {
-          console.log(response)
-          snackBarText.value = 'Success, Add new data!'
-          snackBarColour.value = 'primary'
-          isSnackbarVisible.value = true
-
-          window.location.reload()
-        },
-        onResponseError({ response }) {
-          console.log(response)
-          snackBarText.value = 'Error, Please check your input & connection!'
-          snackBarColour.value = 'error'
-          isSnackbarVisible.value = true
-        },
-      })
-    }
-    catch (err) {
-      console.error(err)
-      snackBarText.value = 'Error, Please check your connection!'
-      snackBarColour.value = 'error'
-      isSnackbarVisible.value = true
-
-      return false
-    }
-  }
-  else {
-    try {
-      await $api(`admin/master/updatestruktural/${id}`, {
-        method: 'POST',
-        body: formData,
-        onResponse(response) {
-          console.log(response)
-          snackBarText.value = 'Success, Update your data!'
-          snackBarColour.value = 'primary'
-          isSnackbarVisible.value = true
-        },
-        onResponseError({ response }) {
-          console.log(response)
-          snackBarText.value = 'Error, Please check your connection!'
-          snackBarColour.value = 'error'
-          isSnackbarVisible.value = true
-        },
-      })
-    }
-    catch (err) {
-      console.error(err)
-      snackBarText.value = 'Error, Please check your connection'
-      snackBarColour.value = 'error'
-      isSnackbarVisible.value = true
-
-      return false
-    }
-  }
-
-  // refetch Data
-  fetchStructurural()
-}
-
-const selectData = async (id: number) => {
-  const res = await $api(`admin/master/detailstruktural/${id}`, {
-    method: 'GET',
-    onResponseError({ response }) {
-      console.log(response)
-    },
-  })
-
-  detailData.value = res.data
-}
-
-const updateDeleteData = (id: number) => {
-  idDelete.value = id
-}
-
-// 👉 Delete data
-const deleteData = async (confirm: boolean) => {
-  const id = idDelete.value
-  if (confirm) {
-    await $api(`admin/master/deletestruktural/${id}`, {
-      method: 'DELETE',
-      onResponseError({ response }) {
-        console.log(response)
-      },
-    })
-  }
-
-  // refetch Data
-  // TODO: Make this async
-  fetchStructurural()
-  idDelete.value = 0
-}
-
-watch(itemsPerPage, () => {
-  fetchStructurural()
-})
-watch(page, () => {
-  fetchStructurural()
-})
-watch(searchQuery, () => {
-  fetchStructurural()
-})
-
-onMounted(() => {
-  fetchStructurural()
-})
 </script>
 
 <template>
   <section>
-    <VCard>
-      <VCardText class="d-flex flex-wrap py-4 gap-4">
+    <!-- 👉 Top Banner Card -->
+    <VCard class="mb-6">
+      <VCardText class="d-flex align-center gap-4 pa-5">
+        <VAvatar
+          size="48"
+          color="primary"
+          variant="tonal"
+          class="rounded"
+        >
+          <VIcon
+            size="28"
+            icon="tabler-subtask"
+          />
+        </VAvatar>
+        <div>
+          <h4 class="text-h5 font-weight-semibold mb-0">
+            Daftar Fungsi
+          </h4>
+          <span class="text-subtitle-2 text-disabled">
+            Kelola posisi jabatan (fungsi), unit organisasi terkait, job level, dan struktur atasan langsung
+          </span>
+        </div>
+      </VCardText>
+    </VCard>
+
+    <!-- 👉 Data Table Card -->
+    <VCard :loading="isLoading">
+      <VCardText class="d-flex flex-wrap py-4 gap-4 align-center">
         <div class="me-3 d-flex gap-3">
           <AppSelect
             :model-value="itemsPerPage"
@@ -271,7 +79,6 @@ onMounted(() => {
               { value: 25, title: '25' },
               { value: 50, title: '50' },
               { value: 100, title: '100' },
-              { value: -1, title: 'All' },
             ]"
             style="inline-size: 6.25rem;"
             @update:model-value="itemsPerPage = parseInt($event, 10)"
@@ -281,21 +88,20 @@ onMounted(() => {
 
         <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
           <!-- 👉 Search  -->
-          <div style="inline-size: 10rem;">
+          <div style="inline-size: 14rem;">
             <AppTextField
               v-model="searchQuery"
-              placeholder="Search"
+              placeholder="Cari posisi / fungsi..."
               density="compact"
             />
           </div>
 
-          <!-- 👉 Add user button -->
-
+          <!-- 👉 Add button -->
           <VBtn
             prepend-icon="tabler-plus"
             @click="addData"
           >
-            Add
+            Tambah Fungsi
           </VBtn>
         </div>
       </VCardText>
@@ -306,39 +112,73 @@ onMounted(() => {
       <VDataTableServer
         v-model:items-per-page="itemsPerPage"
         v-model:page="page"
-        :items="paginatedData"
-        :items-length="totalData"
+        :items="positions"
+        :items-length="totalPositions"
         :headers="headers"
         class="text-no-wrap"
-        @update:options="updateOptions"
       >
-        <!-- Slot for customizing table cells -->
-        <template #item.description="{ item }">
-          <div :style="{ paddingLeft: `${item.indentLevel * 20}px` }">
-            {{ item.description }}
-          </div>
+        <!-- Title / Nama Fungsi -->
+        <template #item.title="{ item }">
+          <span class="font-weight-medium text-high-emphasis">
+            {{ item.raw?.title || item.title || '-' }}
+          </span>
         </template>
+
+        <!-- Division -->
+        <template #item.division="{ item }">
+          <span>{{ getDivisionName(item) }}</span>
+        </template>
+
+        <!-- Organization Unit -->
+        <template #item.organizationUnit.name="{ item }">
+          <span>{{ item.raw?.organizationUnit?.name || item.organizationUnit?.name || '-' }}</span>
+        </template>
+
+        <!-- Job Level -->
+        <template #item.jobLevel.name="{ item }">
+          <VChip
+            label
+            size="small"
+            color="primary"
+            class="text-capitalize"
+          >
+            {{ item.raw?.jobLevel?.name || item.jobLevel?.name || item.raw?.jobLevel?.code || '-' }}
+          </VChip>
+        </template>
+
+        <!-- Parent Position -->
+        <template #item.parentPosition.title="{ item }">
+          <span>{{ item.raw?.parentPosition?.title || item.parentPosition?.title || '-' }}</span>
+        </template>
+
         <!-- Actions -->
         <template #item.actions="{ item }">
-          <IconBtn @click="selectData(item.id);isAddNewStrukturalDrawerVisible = !isAddNewStrukturalDrawerVisible">
+          <IconBtn
+            title="Edit Fungsi"
+            @click="selectData(item.raw?.id || item.id)"
+          >
             <VIcon icon="tabler-edit" />
           </IconBtn>
-          <IconBtn @click="updateDeleteData(item.id); isConfirmDialogOpen = true">
+
+          <IconBtn
+            title="Hapus Fungsi"
+            @click="updateDeleteData(item.raw?.id || item.id); isConfirmDialogOpen = true"
+          >
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>
 
-        <!-- pagination -->
+        <!-- pagination meta -->
         <template #bottom>
           <VDivider />
           <div class="d-flex align-center justify-sm-space-between justify-center flex-wrap gap-3 pa-5 pt-3">
             <p class="text-sm text-disabled mb-0">
-              {{ paginationMeta({ page, itemsPerPage }, totalData) }}
+              {{ paginationMeta({ page, itemsPerPage }, totalPositions) }}
             </p>
 
             <VPagination
               v-model="page"
-              :length="Math.ceil(totalData / itemsPerPage)"
+              :length="Math.ceil(totalPositions / itemsPerPage) || 1"
               :total-visible="6"
             >
               <template #prev="slotProps">
@@ -368,27 +208,27 @@ onMounted(() => {
       </VDataTableServer>
       <!-- SECTION -->
     </VCard>
-    <!-- 👉 Add New User -->
 
-    <AddNewStrukturalDrawer
-      v-model:isDrawerOpen="isAddNewStrukturalDrawerVisible"
-      v-model:struktural-data="detailData"
+    <!-- 👉 Add/Edit Position Drawer -->
+    <AddNewPositionDrawer
+      v-model:isDrawerOpen="isAddNewDrawerVisible"
+      v-model:position-data="detailData"
       @submit="submitProcess"
     />
 
-    <!-- Confirm Dialog -->
+    <!-- Confirm Delete Dialog -->
     <ConfirmDialog
       v-model:isDialogVisible="isConfirmDialogOpen"
-      confirmation-question="Are you sure you want to delete this data?"
-      confirm-title="Deleted!"
-      confirm-msg="Your data has been deleted successfully."
-      cancel-title="Cancelled"
-      cancel-msg="Data Deletion Cancelled!"
+      confirmation-question="Apakah Anda yakin ingin menghapus data fungsi ini?"
+      confirm-title="Terhapus!"
+      confirm-msg="Data fungsi telah berhasil dihapus."
+      cancel-title="Batal"
+      cancel-msg="Penghapusan data fungsi dibatalkan."
       @confirm="deleteData"
     />
   </section>
 
-  <!-- Snackbar -->
+  <!-- Snackbar Notification -->
   <VSnackbar
     v-model="isSnackbarVisible"
     transition="scroll-y-reverse-transition"
