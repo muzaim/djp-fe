@@ -71,8 +71,9 @@ const fetchJobLevels = async () => {
   loadingJobLevels.value = true
   try {
     const levels = await JobLevelService.getJobLevels()
+
     listJobLevels.value = levels.map(lvl => ({
-      title: `${lvl.name} (${lvl.code})`,
+      title: `${lvl.name}`,
       value: String(lvl.id),
     }))
   }
@@ -109,19 +110,38 @@ const populateForEdit = async (data: any) => {
   // Safely unwrap detail payload whether raw or nested under data.data
   const itemData = data?.data || data
 
-  if (listJobLevels.value.length === 0)
-    await fetchJobLevels()
-  if (listOrgUnits.value.length === 0)
-    await fetchOrgUnits()
+  // Set ID and title first so filter in fetchParentPositions works correctly
+  formData.value.id = itemData.id || ''
+  formData.value.title = itemData.title || ''
 
-  await fetchParentPositions()
+  // Load all option lists in parallel and wait for completion
+  await Promise.all([
+    fetchOrgUnits(),
+    fetchJobLevels(),
+    fetchParentPositions(),
+  ])
+
+  // Extract parent position ID and parent object
+  const pId = itemData.parentPositionId || itemData.parentPosition?.id || null
+  const parentObj = itemData.parentPosition
+
+  // Guarantee that current parent position exists in dropdown options
+  if (pId && parentObj && parentObj.title) {
+    const parentIdStr = String(pId)
+    if (!listParentPositions.value.some(opt => opt.value === parentIdStr)) {
+      listParentPositions.value.unshift({
+        title: parentObj.title,
+        value: parentIdStr,
+      })
+    }
+  }
 
   formData.value = {
     id: itemData.id,
     title: itemData.title || '',
     organizationUnitId: itemData.organizationUnitId || itemData.organizationUnit?.id || '',
     jobLevelId: itemData.jobLevelId || itemData.jobLevel?.id || '',
-    parentPositionId: itemData.parentPositionId || itemData.parentPosition?.id || null,
+    parentPositionId: pId ? String(pId) : null,
   }
 }
 
@@ -157,6 +177,7 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid, errors }) => {
     if (!valid) {
       console.warn('Form validation failed:', errors)
+
       return
     }
 

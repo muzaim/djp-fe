@@ -9,8 +9,10 @@ import type {
 export function useOrgStructure() {
   const orgUnits = ref<OrganizationUnitItem[]>([])
   const treeRoots = ref<any[]>([])
+  const chartData = ref<any[]>([])
   const totalOrgUnits = ref(0)
   const isLoading = ref(false)
+  const isLoadingChart = ref(false)
 
   const searchQuery = ref('')
   const debouncedSearch = refDebounced(searchQuery, 400)
@@ -28,6 +30,24 @@ export function useOrgStructure() {
   const detailData = ref<any>(null)
 
   /**
+   * Fetch organization chart data directly from GET /organization-units/chart
+   */
+  const fetchOrgChart = async () => {
+    isLoadingChart.value = true
+    try {
+      const res = await OrgStructureService.getOrganizationChart()
+      chartData.value = Array.isArray(res) ? res : []
+    }
+    catch (err: any) {
+      console.error('Fetch org chart error:', err)
+      chartData.value = []
+    }
+    finally {
+      isLoadingChart.value = false
+    }
+  }
+
+  /**
    * Fetch all organization units and order them hierarchically with depth indentation
    */
   const fetchOrgUnits = async () => {
@@ -41,7 +61,7 @@ export function useOrgStructure() {
 
       const rawItems: OrganizationUnitItem[] = res.data || []
 
-      // Build hierarchical tree for Chart and Table
+      // Build hierarchical tree for Table
       const itemMap = new Map<string, any>()
       const roots: any[] = []
 
@@ -180,6 +200,7 @@ export function useOrgStructure() {
       isSnackbarVisible.value = true
       isAddNewDrawerVisible.value = false
       await fetchOrgUnits()
+      await fetchOrgChart()
     }
     catch (err: any) {
       console.error('Submit org unit error:', err)
@@ -209,6 +230,7 @@ export function useOrgStructure() {
         snackBarColour.value = 'primary'
         isSnackbarVisible.value = true
         await fetchOrgUnits()
+        await fetchOrgChart()
       }
       catch (err: any) {
         console.error('Delete org unit error:', err)
@@ -223,19 +245,29 @@ export function useOrgStructure() {
     idDelete.value = ''
   }
 
+  // Fetch chart when dialog opens
+  watch(isChartDialogOpen, isOpen => {
+    if (isOpen) {
+      fetchOrgChart()
+    }
+  })
+
   watch([debouncedSearch], () => {
     fetchOrgUnits()
   })
 
   onMounted(() => {
     fetchOrgUnits()
+    fetchOrgChart()
   })
 
   return {
     orgUnits,
     treeRoots,
+    chartData,
     totalOrgUnits,
     isLoading,
+    isLoadingChart,
     searchQuery,
     itemsPerPage,
     page,
@@ -247,6 +279,7 @@ export function useOrgStructure() {
     isChartDialogOpen,
     detailData,
     fetchOrgUnits,
+    fetchOrgChart,
     addData,
     selectData,
     submitProcess,

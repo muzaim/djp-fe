@@ -1,7 +1,9 @@
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   node: any
 }>()
+
+const type = computed(() => props.node.levelType || props.node.type || 'SECTION')
 
 const getLevelColor = (levelType: string) => {
   switch (levelType) {
@@ -10,6 +12,8 @@ const getLevelColor = (levelType: string) => {
     case 'DIVISION': return 'success'
     case 'DEPARTMENT': return 'warning'
     case 'SECTION': return 'info'
+    case 'NON_BAGIAN': return 'secondary'
+    case 'POSITION': return 'primary'
     default: return 'secondary'
   }
 }
@@ -19,8 +23,10 @@ const getLevelLabel = (levelType: string) => {
     case 'COMPANY': return 'Perusahaan'
     case 'DIRECTORATE': return 'Direktorat'
     case 'DIVISION': return 'Divisi'
-    case 'DEPARTMENT': return 'Bagian'
+    case 'DEPARTMENT': return 'Departemen'
     case 'SECTION': return 'Seksi'
+    case 'NON_BAGIAN': return 'Non Bagian'
+    case 'POSITION': return 'Fungsi'
     default: return levelType || 'Unit'
   }
 }
@@ -32,6 +38,8 @@ const getIcon = (levelType: string) => {
     case 'DIVISION': return 'tabler-subtask'
     case 'DEPARTMENT': return 'tabler-category'
     case 'SECTION': return 'tabler-layout-grid'
+    case 'NON_BAGIAN': return 'tabler-folders'
+    case 'POSITION': return 'tabler-user-check'
     default: return 'tabler-subtask'
   }
 }
@@ -43,26 +51,26 @@ const getIcon = (levelType: string) => {
     <VCard
       elevation="3"
       class="org-card px-4 py-3 text-center rounded-lg"
-      :class="`border-${getLevelColor(node.levelType)}`"
+      :class="`border-${getLevelColor(type)}`"
     >
       <div class="d-flex align-center justify-center gap-2 mb-1">
         <VIcon
           size="18"
-          :color="getLevelColor(node.levelType)"
-          :icon="getIcon(node.levelType)"
+          :color="getLevelColor(type)"
+          :icon="getIcon(type)"
         />
         <VChip
           size="x-small"
-          :color="getLevelColor(node.levelType)"
+          :color="getLevelColor(type)"
           label
           class="font-weight-medium"
         >
-          {{ getLevelLabel(node.levelType) }}
+          {{ getLevelLabel(type) }}
         </VChip>
       </div>
 
-      <h6 class="text-subtitle-1 font-weight-bold mb-0 text-high-emphasis text-wrap max-w-200">
-        {{ node.name }}
+      <h6 class="text-subtitle-1 font-weight-bold mb-0 text-high-emphasis text-wrap max-w-220">
+        {{ node.name || node.label || node.title || '-' }}
       </h6>
     </VCard>
 
@@ -81,7 +89,7 @@ const getIcon = (levelType: string) => {
 </template>
 
 <style scoped>
-.max-w-200 {
+.max-w-220 {
   max-inline-size: 220px;
 }
 

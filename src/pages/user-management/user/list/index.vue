@@ -31,15 +31,16 @@ const headers = [
   { title: 'No', key: 'index', sortable: false },
   { title: 'Name', key: 'name' },
   { title: 'Email', key: 'email' },
-  { title: 'Division', key: 'division' },
-  { title: 'Position', key: 'position.title' },
+  { title: 'Divisi', key: 'division' },
+  { title: 'Posisi', key: 'position.title' },
   { title: 'Role', key: 'role' },
-  { title: 'Actions', key: 'actions', sortable: false },
+  { title: 'Aksi', key: 'actions', sortable: false },
 ]
 
 // Safely extract division name using position.division.name
 const getDivisionName = (userItem: any) => {
   const item = userItem?.raw || userItem
+
   return item?.position?.division?.name
     || item?.position?.organizationUnit?.parent?.name
     || item?.position?.organizationUnit?.name
@@ -49,12 +50,14 @@ const getDivisionName = (userItem: any) => {
 // Safely extract position title
 const getPositionTitle = (userItem: any) => {
   const item = userItem?.raw || userItem
+
   return item?.position?.title || '-'
 }
 
 // Safely extract role name
 const getRoleName = (userItem: any) => {
   const item = userItem?.raw || userItem
+
   const roleName = item?.userRoles?.[0]?.role?.name
     || (Array.isArray(item?.roles) ? item.roles[0] : item?.roles)
     || item?.userRoles?.[0]?.role?.code
@@ -114,7 +117,7 @@ const getRoleName = (userItem: any) => {
           <div style="inline-size: 14rem;">
             <AppTextField
               v-model="searchQuery"
-              placeholder="Search user..."
+              placeholder="Cari user..."
               density="compact"
             />
           </div>
@@ -124,7 +127,7 @@ const getRoleName = (userItem: any) => {
             prepend-icon="tabler-plus"
             @click="addData"
           >
-            Add User
+            Tambah User
           </VBtn>
         </div>
       </VCardText>

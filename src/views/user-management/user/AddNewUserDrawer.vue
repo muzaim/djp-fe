@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import type { VForm } from 'vuetify/components/VForm'
+import { VForm } from 'vuetify/components/VForm'
 import { OrgStructureService } from '@/services/org-structure.service'
 
 interface Props {
@@ -52,6 +52,7 @@ const fetchDivisions = async () => {
   loadingDivisions.value = true
   try {
     const divisions = await OrgStructureService.getDivisions()
+
     listDivisions.value = divisions.map(div => ({
       title: div.name,
       value: String(div.id),
@@ -69,12 +70,14 @@ const fetchDivisions = async () => {
 const fetchPositionsByDivision = async (divisionId: string) => {
   if (!divisionId) {
     listPositions.value = []
+
     return
   }
 
   loadingPositions.value = true
   try {
     const positions = await OrgStructureService.getPositionsByDivision(divisionId)
+
     listPositions.value = positions.map(pos => ({
       title: pos.title,
       value: String(pos.id),
@@ -118,12 +121,11 @@ const fetchRoles = async () => {
 const handleDivisionChange = async (newDivisionId: string) => {
   userData.value.positionId = ''
 
-  if (newDivisionId) {
+  if (newDivisionId)
     await fetchPositionsByDivision(newDivisionId)
-  }
-  else {
+
+  else
     listPositions.value = []
-  }
 }
 
 // Populate user data deterministically when editing using position.division object
@@ -137,17 +139,15 @@ const populateUserForEdit = async (user: any) => {
   const roleId = user.roleIds?.[0] || user.userRoles?.[0]?.roleId || user.userRoles?.[0]?.role?.id || ''
 
   // Pre-load divisions & roles if not loaded
-  if (listDivisions.value.length === 0) {
+  if (listDivisions.value.length === 0)
     await fetchDivisions()
-  }
-  if (listRoles.value.length === 0) {
+
+  if (listRoles.value.length === 0)
     await fetchRoles()
-  }
 
   // Pre-fetch positions for division
-  if (divisionId) {
+  if (divisionId)
     await fetchPositionsByDivision(divisionId)
-  }
 
   // Set canonical models
   selectedDivisionId.value = divisionId
@@ -167,6 +167,7 @@ watch(
   async newVal => {
     if (newVal && newVal.id) {
       const rawVal = structuredClone(toRaw(newVal))
+
       await populateUserForEdit(rawVal)
     }
     else {
@@ -193,6 +194,7 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid, errors }) => {
     if (!valid) {
       console.warn('Form validation failed:', errors)
+
       return
     }
 
@@ -249,8 +251,7 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
                 <AppTextField
                   v-model="userData.name"
                   :rules="[requiredValidator]"
-                  label="Full Name"
-                  placeholder="Syafri Surya"
+                  label="Nama Lengkap"
                 />
               </VCol>
 
@@ -260,18 +261,19 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
                   v-model="userData.email"
                   :rules="[requiredValidator, emailValidator]"
                   label="Email"
-                  placeholder="syafri@smf.co.id"
                 />
               </VCol>
 
               <!-- 👉 Phone -->
-              <VCol cols="12">
+              <!--
+                <VCol cols="12">
                 <AppTextField
-                  v-model="userData.phoneNumber"
-                  label="Phone"
-                  placeholder="08123456789"
+                v-model="userData.phoneNumber"
+                label="Phone"
+                placeholder="08123456789"
                 />
-              </VCol>
+                </VCol>
+              -->
 
               <!-- 👉 Select Division (1st level) -->
               <VCol cols="12">
@@ -279,7 +281,7 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
                   v-model="selectedDivisionId"
                   :loading="loadingDivisions"
                   :items="listDivisions"
-                  label="Select Division"
+                  label="Divisi"
                   placeholder="Select Division first..."
                   hide-no-data
                   clearable
@@ -295,7 +297,7 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
                   :items="listPositions"
                   :disabled="!selectedDivisionId"
                   :rules="[requiredValidator]"
-                  label="Select Position"
+                  label="Fungsi"
                   placeholder="Select Position..."
                   hide-no-data
                 />
@@ -307,7 +309,7 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
                   v-model="userData.roleId"
                   :loading="loadingRoles"
                   :items="listRoles"
-                  label="Select Role"
+                  label="Role"
                   placeholder="Select Role..."
                   hide-no-data
                 />

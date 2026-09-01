@@ -44,6 +44,18 @@ export class OrgStructureService {
   }
 
   /**
+   * Fetch complete organization tree chart data via GET /organization-units/chart
+   */
+  static async getOrganizationChart(): Promise<any[]> {
+    const res = await $api('/organization-units/chart', {
+      method: 'GET',
+    })
+
+    const payload = res?.data || res
+    return Array.isArray(payload) ? payload : (payload?.items || [])
+  }
+
+  /**
    * Get single organization unit detail by ID via GET /organization-units/:id
    */
   static async getOrganizationUnitById(id: string): Promise<OrganizationUnitItem> {

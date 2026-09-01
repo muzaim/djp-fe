@@ -5,9 +5,10 @@ import OrgChartDialog from '@/views/user-management/struktur-organisasi/OrgChart
 
 const {
   orgUnits,
-  treeRoots,
+  chartData,
   totalOrgUnits,
   isLoading,
+  isLoadingChart,
   searchQuery,
   isSnackbarVisible,
   snackBarText,
@@ -49,7 +50,7 @@ const getLevelLabel = (levelType: string) => {
     case 'COMPANY': return 'Perusahaan'
     case 'DIRECTORATE': return 'Direktorat'
     case 'DIVISION': return 'Divisi'
-    case 'DEPARTMENT': return 'Bagian'
+    case 'DEPARTMENT': return 'Departemen'
     case 'SECTION': return 'Seksi'
     default: return levelType
   }
@@ -102,6 +103,8 @@ const getLevelLabel = (levelType: string) => {
           <!-- 👉 View Org Chart Button -->
           <VBtn
             prepend-icon="tabler-hierarchy-2"
+            variant="tonal"
+            color="primary"
             @click="isChartDialogOpen = true"
           >
             Lihat Bagan
@@ -201,10 +204,10 @@ const getLevelLabel = (levelType: string) => {
       @submit="submitProcess"
     />
 
-    <!-- 👉 Bagan Organization Chart Modal Dialog -->
+    <!-- 👉 Bagan Organization Chart Modal Dialog (Consuming GET /organization-units/chart) -->
     <OrgChartDialog
       v-model:isDialogVisible="isChartDialogOpen"
-      :tree-data="treeRoots"
+      :tree-data="chartData"
     />
 
     <!-- Confirm Delete Dialog -->

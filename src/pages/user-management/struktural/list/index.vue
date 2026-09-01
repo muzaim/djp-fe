@@ -31,12 +31,13 @@ const headers = [
   { title: 'Unit Organisasi', key: 'organizationUnit.name' },
   { title: 'Job Level', key: 'jobLevel.name' },
   { title: 'Atasan Langsung', key: 'parentPosition.title' },
-  { title: 'Actions', key: 'actions', sortable: false },
+  { title: 'Aksi', key: 'actions', sortable: false },
 ]
 
 // Extract division name directly from position.division object
 const getDivisionName = (posItem: any) => {
   const item = posItem?.raw || posItem
+
   return item?.division?.name || '-'
 }
 </script>
