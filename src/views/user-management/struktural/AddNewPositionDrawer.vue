@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import type { VForm } from 'vuetify/components/VForm'
-import { OrgStructureService } from '@/services/org-structure.service'
-import { JobLevelService } from '@/services/job-level.service'
 import { PositionService } from '@/services/position.service'
+import { useMasterStore } from '@/stores/useMasterStore'
 
 interface Props {
   isDrawerOpen: boolean
@@ -25,6 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emit>()
+const masterStore = useMasterStore()
 
 const defaultPositionData = {
   id: '',
@@ -46,12 +46,11 @@ const loadingOrgUnits = ref(false)
 const loadingJobLevels = ref(false)
 const loadingParents = ref(false)
 
-// Fetch Org Units (Loads all organization units without division filter)
+// Fetch Org Units (using masterStore cache)
 const fetchOrgUnits = async () => {
   loadingOrgUnits.value = true
   try {
-    const res = await OrgStructureService.getOrganizationUnits({ limit: 1000 })
-    const items = res.data || []
+    const items = await masterStore.getOrgUnits()
 
     listOrgUnits.value = items.map(u => ({
       title: u.name,
@@ -66,11 +65,11 @@ const fetchOrgUnits = async () => {
   }
 }
 
-// Fetch Job Levels
+// Fetch Job Levels (using masterStore cache)
 const fetchJobLevels = async () => {
   loadingJobLevels.value = true
   try {
-    const levels = await JobLevelService.getJobLevels()
+    const levels = await masterStore.getJobLevels()
 
     listJobLevels.value = levels.map(lvl => ({
       title: `${lvl.name}`,
@@ -114,7 +113,7 @@ const populateForEdit = async (data: any) => {
   formData.value.id = itemData.id || ''
   formData.value.title = itemData.title || ''
 
-  // Load all option lists in parallel and wait for completion
+  // Load all option lists in parallel (cached) and wait for completion
   await Promise.all([
     fetchOrgUnits(),
     fetchJobLevels(),
@@ -177,7 +176,6 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid, errors }) => {
     if (!valid) {
       console.warn('Form validation failed:', errors)
-
       return
     }
 
@@ -188,6 +186,9 @@ const onSubmit = () => {
       jobLevelId: formData.value.jobLevelId,
       parentPositionId: formData.value.parentPositionId || undefined,
     }
+
+    // Invalidate masterStore cache after mutation
+    masterStore.invalidateCache()
 
     emit('submit', payload)
   })
@@ -223,50 +224,50 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <!-- 👉 Title -->
+              <!-- 👉 Title (Mandatory *) -->
               <VCol cols="12">
                 <AppTextField
                   v-model="formData.title"
                   :rules="[requiredValidator]"
-                  label="Nama Fungsi / Posisi Jabatan"
+                  label="Nama Fungsi / Posisi Jabatan *"
                   placeholder="Kepala Bagian Perencanaan..."
                 />
               </VCol>
 
-              <!-- 👉 Organization Unit -->
+              <!-- 👉 Organization Unit (Mandatory *) -->
               <VCol cols="12">
                 <AppAutocomplete
                   v-model="formData.organizationUnitId"
                   :loading="loadingOrgUnits"
                   :items="listOrgUnits"
                   :rules="[requiredValidator]"
-                  label="Unit Organisasi"
+                  label="Unit Organisasi *"
                   placeholder="Pilih Unit Organisasi..."
                   hide-no-data
                 />
               </VCol>
 
-              <!-- 👉 Job Level -->
+              <!-- 👉 Job Level (Mandatory *) -->
               <VCol cols="12">
                 <AppAutocomplete
                   v-model="formData.jobLevelId"
                   :loading="loadingJobLevels"
                   :items="listJobLevels"
                   :rules="[requiredValidator]"
-                  label="Job Level"
+                  label="Job Level *"
                   placeholder="Pilih Job Level..."
                   hide-no-data
                 />
               </VCol>
 
-              <!-- 👉 Parent Position -->
+              <!-- 👉 Parent Position (Optional) -->
               <VCol cols="12">
                 <AppAutocomplete
                   v-model="formData.parentPositionId"
                   :loading="loadingParents"
                   :items="listParentPositions"
                   label="Atasan Langsung (Parent Position)"
-                  placeholder="Pilih Atasan Langsung (Opsional)..."
+                  placeholder="Pilih Atasan Langsung..."
                   hide-no-data
                   clearable
                 />

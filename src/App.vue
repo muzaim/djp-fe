@@ -4,6 +4,7 @@ import ScrollToTop from '@core/components/ScrollToTop.vue'
 import initCore from '@core/initCore'
 import { initConfigStore, useConfigStore } from '@core/stores/config'
 import { hexToRgb } from '@layouts/utils'
+import SessionExpiredDialog from '@/components/dialogs/SessionExpiredDialog.vue'
 
 const { global } = useTheme()
 
@@ -21,6 +22,7 @@ const configStore = useConfigStore()
       <RouterView />
 
       <ScrollToTop />
+      <SessionExpiredDialog />
     </VApp>
   </VLocaleProvider>
 </template>

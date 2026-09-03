@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { VForm } from 'vuetify/components/VForm'
+import type { VForm } from 'vuetify/components/VForm'
 import { OrgStructureService } from '@/services/org-structure.service'
+import { useMasterStore } from '@/stores/useMasterStore'
 
 interface Props {
   isDrawerOpen: boolean
@@ -23,72 +24,81 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emit>()
+const masterStore = useMasterStore()
 
 const defaultOrgUnitData = {
   id: '',
   code: '',
   name: '',
   levelType: 'DIVISION',
-  parentId: '',
+  parentId: null,
 }
 
-// Level type options translated to Indonesian (Without 'COMPANY')
+// Level types excluding COMPANY for user selection
 const levelTypeOptions = [
   { title: 'Direktorat', value: 'DIRECTORATE' },
   { title: 'Divisi', value: 'DIVISION' },
-  { title: 'Bagian', value: 'DEPARTMENT' },
+  { title: 'Departemen', value: 'DEPARTMENT' },
+  { title: 'Seksi', value: 'SECTION' },
 ]
 
-const listParentOrgUnits = ref<SelectOption[]>([])
+const listParentUnits = ref<SelectOption[]>([])
 const formData = ref<any>({ ...defaultOrgUnitData })
 
 const isFormValid = ref(false)
 const refForm = ref<VForm>()
 const loadingParents = ref(false)
 
-// Fetch parent candidates from GET /organization-units
+// Fetch candidates for Parent Unit (using masterStore cache)
 const fetchParentCandidates = async () => {
   loadingParents.value = true
   try {
-    const res = await OrgStructureService.getOrganizationUnits({ limit: 100 })
+    const items = await masterStore.getOrgUnits()
 
-    listParentOrgUnits.value = res.data
-      .filter(item => item.id !== formData.value.id)
-      .map(item => ({
-        title: `${item.name} `,
-        value: String(item.id),
+    listParentUnits.value = items
+      .filter(u => u.id !== formData.value.id)
+      .map(u => ({
+        title: `${u.name}`,
+        value: String(u.id),
       }))
   }
   catch (err) {
-    console.error('Fetch parent units error:', err)
+    console.error('Fetch parent candidates error:', err)
   }
   finally {
     loadingParents.value = false
   }
 }
 
+const populateForEdit = async (data: any) => {
+  formData.value = {
+    id: data.id,
+    code: data.code || '',
+    name: data.name || '',
+    levelType: data.levelType || 'DIVISION',
+    parentId: data.parentId || data.parent?.id || null,
+  }
+
+  await fetchParentCandidates()
+}
+
 watch(
   () => props.orgUnitData,
   async newVal => {
-    await fetchParentCandidates()
     if (newVal && newVal.id) {
       const rawVal = structuredClone(toRaw(newVal))
-
-      formData.value = {
-        ...defaultOrgUnitData,
-        ...rawVal,
-        parentId: rawVal.parentId || rawVal.parent?.id || '',
-      }
+      await populateForEdit(rawVal)
     }
     else {
       formData.value = { ...defaultOrgUnitData }
+      await fetchParentCandidates()
     }
   },
   { immediate: true, deep: true },
 )
 
-onMounted(() => {
-  fetchParentCandidates()
+onMounted(async () => {
+  await fetchParentCandidates()
 })
 
 const closeNavigationDrawer = () => {
@@ -102,7 +112,6 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid, errors }) => {
     if (!valid) {
       console.warn('Form validation failed:', errors)
-
       return
     }
 
@@ -113,6 +122,9 @@ const onSubmit = () => {
       levelType: formData.value.levelType,
       parentId: formData.value.parentId || undefined,
     }
+
+    // Invalidate masterStore cache on submit
+    masterStore.invalidateCache()
 
     emit('submit', payload)
   })
@@ -148,45 +160,45 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <!-- 👉 Code -->
+              <!-- 👉 Code (Mandatory *) -->
               <VCol cols="12">
                 <AppTextField
                   v-model="formData.code"
                   :rules="[requiredValidator]"
-                  label="Kode Unit"
+                  label="Kode Unit *"
                   placeholder="DIV-TI"
                 />
               </VCol>
 
-              <!-- 👉 Name -->
+              <!-- 👉 Name (Mandatory *) -->
               <VCol cols="12">
                 <AppTextField
                   v-model="formData.name"
                   :rules="[requiredValidator]"
-                  label="Nama Unit"
+                  label="Nama Unit *"
                   placeholder="Divisi Teknologi Informasi"
                 />
               </VCol>
 
-              <!-- 👉 Level Type -->
+              <!-- 👉 Level Type (Mandatory *) -->
               <VCol cols="12">
                 <AppSelect
                   v-model="formData.levelType"
                   :items="levelTypeOptions"
                   :rules="[requiredValidator]"
-                  label="Tipe Level"
+                  label="Tipe Level *"
                   placeholder="Pilih Tipe Level..."
                 />
               </VCol>
 
-              <!-- 👉 Parent Unit -->
+              <!-- 👉 Parent Unit (Optional) -->
               <VCol cols="12">
                 <AppAutocomplete
                   v-model="formData.parentId"
                   :loading="loadingParents"
-                  :items="listParentOrgUnits"
-                  label="Induk Unit (Parent)"
-                  placeholder="Pilih Induk Unit (Opsional)..."
+                  :items="listParentUnits"
+                  label="Induk Unit / Parent"
+                  placeholder="Pilih Induk Unit..."
                   hide-no-data
                   clearable
                 />

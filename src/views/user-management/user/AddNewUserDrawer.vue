@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { VForm } from 'vuetify/components/VForm'
+import type { VForm } from 'vuetify/components/VForm'
 import { OrgStructureService } from '@/services/org-structure.service'
+import { useMasterStore } from '@/stores/useMasterStore'
 
 interface Props {
   isDrawerOpen: boolean
@@ -23,15 +24,15 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emit>()
+const masterStore = useMasterStore()
 
-// Canonical single-key default model
 const defaultUserData = {
   id: '',
   name: '',
   email: '',
-  phoneNumber: '',
   positionId: '',
-  roleId: '',
+  roleIds: [] as string[],
+  isActive: true,
 }
 
 const listDivisions = ref<SelectOption[]>([])
@@ -47,11 +48,11 @@ const loadingDivisions = ref(false)
 const loadingPositions = ref(false)
 const loadingRoles = ref(false)
 
-// 1. Fetch all divisions from GET /organization-units/divisions
+// 1. Fetch all divisions using masterStore cache
 const fetchDivisions = async () => {
   loadingDivisions.value = true
   try {
-    const divisions = await OrgStructureService.getDivisions()
+    const divisions = await masterStore.getDivisions()
 
     listDivisions.value = divisions.map(div => ({
       title: div.name,
@@ -66,11 +67,10 @@ const fetchDivisions = async () => {
   }
 }
 
-// 2. Fetch positions by Division ID from GET /positions/by-division/:divisionId
+// 2. Fetch positions by Division ID
 const fetchPositionsByDivision = async (divisionId: string) => {
   if (!divisionId) {
     listPositions.value = []
-
     return
   }
 
@@ -92,17 +92,11 @@ const fetchPositionsByDivision = async (divisionId: string) => {
   }
 }
 
-// 3. Fetch roles from GET /roles
+// 3. Fetch roles using masterStore cache
 const fetchRoles = async () => {
   loadingRoles.value = true
   try {
-    const res = await $api('/roles', {
-      method: 'GET',
-      params: { limit: 100 },
-    })
-
-    const payload = res?.data || res
-    const items = payload?.items || (Array.isArray(payload) ? payload : [])
+    const items = await masterStore.getRoles()
 
     listRoles.value = items.map((item: any) => ({
       title: item.name || item.code || 'Role',
@@ -120,55 +114,66 @@ const fetchRoles = async () => {
 // Handle manual user interaction on Division dropdown change
 const handleDivisionChange = async (newDivisionId: string) => {
   userData.value.positionId = ''
-
-  if (newDivisionId)
-    await fetchPositionsByDivision(newDivisionId)
-
-  else
-    listPositions.value = []
+  await fetchPositionsByDivision(newDivisionId)
 }
 
-// Populate user data deterministically when editing using position.division object
-const populateUserForEdit = async (user: any) => {
-  const divisionId = user.position?.division?.id
-    || user.position?.organizationUnit?.parent?.id
-    || (user.position?.organizationUnit?.levelType === 'DIVISION' ? user.position?.organizationUnit?.id : '')
+const populateForEdit = async (data: any) => {
+  const currentPos = data.position || {}
+
+  const divId = currentPos.division?.id
+    || currentPos.organizationUnit?.parent?.id
+    || (currentPos.organizationUnit?.levelType === 'DIVISION' ? currentPos.organizationUnit?.id : '')
+    || data.divisionId
     || ''
 
-  const positionId = user.positionId || user.position?.id || ''
-  const roleId = user.roleIds?.[0] || user.userRoles?.[0]?.roleId || user.userRoles?.[0]?.role?.id || ''
+  const posId = currentPos.id || data.positionId || data.position_id || ''
 
-  // Pre-load divisions & roles if not loaded
+  // Extract multiple role IDs safely
+  let extractedRoleIds: string[] = []
+  if (Array.isArray(data.userRoles) && data.userRoles.length > 0) {
+    extractedRoleIds = data.userRoles.map((ur: any) => String(ur.roleId || ur.role?.id || ur.id)).filter(Boolean)
+  }
+  else if (Array.isArray(data.roles) && data.roles.length > 0) {
+    extractedRoleIds = data.roles.map((r: any) => String(r.id || r)).filter(Boolean)
+  }
+  else if (data.roleId) {
+    extractedRoleIds = [String(data.roleId)]
+  }
+
+  selectedDivisionId.value = String(divId)
+
   if (listDivisions.value.length === 0)
     await fetchDivisions()
-
   if (listRoles.value.length === 0)
     await fetchRoles()
 
-  // Pre-fetch positions for division
-  if (divisionId)
-    await fetchPositionsByDivision(divisionId)
+  if (divId) {
+    await fetchPositionsByDivision(String(divId))
+  }
 
-  // Set canonical models
-  selectedDivisionId.value = divisionId
+  if (posId && !listPositions.value.some(p => p.value === String(posId))) {
+    listPositions.value.unshift({
+      title: currentPos.title || 'Selected Position',
+      value: String(posId),
+    })
+  }
+
   userData.value = {
-    id: user.id,
-    name: user.name || user.full_name || '',
-    email: user.email || '',
-    phoneNumber: user.phoneNumber || user.phone || '',
-    positionId,
-    roleId,
+    id: data.id,
+    name: data.name || data.full_name || '',
+    email: data.email || '',
+    positionId: posId ? String(posId) : '',
+    roleIds: extractedRoleIds,
+    isActive: typeof data.isActive === 'boolean' ? data.isActive : true,
   }
 }
 
-// Watch props.userData for Edit vs Add
 watch(
   () => props.userData,
   async newVal => {
     if (newVal && newVal.id) {
       const rawVal = structuredClone(toRaw(newVal))
-
-      await populateUserForEdit(rawVal)
+      await populateForEdit(rawVal)
     }
     else {
       userData.value = { ...defaultUserData }
@@ -194,7 +199,6 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid, errors }) => {
     if (!valid) {
       console.warn('Form validation failed:', errors)
-
       return
     }
 
@@ -202,10 +206,9 @@ const onSubmit = () => {
       id: userData.value.id || undefined,
       name: userData.value.name,
       email: userData.value.email,
-      phoneNumber: userData.value.phoneNumber || undefined,
-      positionId: userData.value.positionId ? String(userData.value.positionId) : undefined,
-      roleId: userData.value.roleId ? String(userData.value.roleId) : undefined,
-      isActive: true,
+      positionId: userData.value.positionId || undefined,
+      roleIds: userData.value.roleIds || [],
+      isActive: userData.value.isActive,
     }
 
     emit('submit', payload)
@@ -214,10 +217,6 @@ const onSubmit = () => {
 
 const handleDrawerModelValueUpdate = (val: boolean) => {
   emit('update:isDrawerOpen', val)
-  if (!val) {
-    selectedDivisionId.value = ''
-    listPositions.value = []
-  }
 }
 </script>
 
@@ -246,71 +245,64 @@ const handleDrawerModelValueUpdate = (val: boolean) => {
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <!-- 👉 Full name -->
+              <!-- 👉 Full Name (Mandatory *) -->
               <VCol cols="12">
                 <AppTextField
                   v-model="userData.name"
                   :rules="[requiredValidator]"
-                  label="Nama Lengkap"
+                  label="Full Name *"
+                  placeholder="John Doe"
                 />
               </VCol>
 
-              <!-- 👉 Email -->
+              <!-- 👉 Email (Mandatory *) -->
               <VCol cols="12">
                 <AppTextField
                   v-model="userData.email"
                   :rules="[requiredValidator, emailValidator]"
-                  label="Email"
+                  label="Email *"
+                  placeholder="johndoe@email.com"
                 />
               </VCol>
 
-              <!-- 👉 Phone -->
-              <!--
-                <VCol cols="12">
-                <AppTextField
-                v-model="userData.phoneNumber"
-                label="Phone"
-                placeholder="08123456789"
-                />
-                </VCol>
-              -->
-
-              <!-- 👉 Select Division (1st level) -->
+              <!-- 👉 Division Select (Optional) -->
               <VCol cols="12">
                 <AppAutocomplete
                   v-model="selectedDivisionId"
                   :loading="loadingDivisions"
                   :items="listDivisions"
                   label="Divisi"
-                  placeholder="Select Division first..."
-                  hide-no-data
+                  placeholder="Pilih Divisi..."
                   clearable
+                  hide-no-data
                   @update:model-value="handleDivisionChange"
                 />
               </VCol>
 
-              <!-- 👉 Select Position (2nd level based on Division) -->
+              <!-- 👉 Position Select (Optional) -->
               <VCol cols="12">
                 <AppAutocomplete
                   v-model="userData.positionId"
                   :loading="loadingPositions"
                   :items="listPositions"
                   :disabled="!selectedDivisionId"
-                  :rules="[requiredValidator]"
-                  label="Fungsi"
-                  placeholder="Select Position..."
+                  label="Posisi / Struktural"
+                  placeholder="Pilih Posisi..."
                   hide-no-data
                 />
               </VCol>
 
-              <!-- 👉 Select Role -->
+              <!-- 👉 Multi-Select Role Hak Akses (Optional - Support 1 or More Roles) -->
               <VCol cols="12">
                 <AppAutocomplete
-                  v-model="userData.roleId"
+                  v-model="userData.roleIds"
                   :loading="loadingRoles"
                   :items="listRoles"
-                  label="Role"
-                  placeholder="Select Role..."
+                  label="Role Hak Akses"
+                  placeholder="Pilih Role (Bisa Lebih Dari 1)..."
+                  multiple
+                  chips
+                  closable-chips
                   hide-no-data
                 />
               </VCol>

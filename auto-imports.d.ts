@@ -51,6 +51,8 @@ declare global {
   const emailValidator: typeof import('./src/@core/utils/validators')['emailValidator']
   const encryptMessage: typeof import('./src/utils/security')['encryptMessage']
   const extendRef: typeof import('@vueuse/core')['extendRef']
+  const extractErrorMessage: typeof import('./src/utils/error-mapper')['extractErrorMessage']
+  const extractFieldErrors: typeof import('./src/utils/error-mapper')['extractFieldErrors']
   const formatDate: typeof import('./src/@core/utils/formatters')['formatDate']
   const formatDateToMonthShort: typeof import('./src/@core/utils/formatters')['formatDateToMonthShort']
   const getActivePinia: typeof import('pinia')['getActivePinia']
@@ -160,6 +162,8 @@ declare global {
   const useAbility: typeof import('./src/plugins/casl/composables/useAbility')['useAbility']
   const useAbs: typeof import('@vueuse/math')['useAbs']
   const useActiveElement: typeof import('@vueuse/core')['useActiveElement']
+  const useActivity: typeof import('./src/composables/useActivity')['useActivity']
+  const useActivityOutput: typeof import('./src/composables/useActivityOutput')['useActivityOutput']
   const useAnimate: typeof import('@vueuse/core')['useAnimate']
   const useApi: typeof import('./src/composables/useApi')['useApi']
   const useArrayDifference: typeof import('@vueuse/core')['useArrayDifference']
@@ -177,6 +181,7 @@ declare global {
   const useAsyncQueue: typeof import('@vueuse/core')['useAsyncQueue']
   const useAsyncState: typeof import('@vueuse/core')['useAsyncState']
   const useAttrs: typeof import('vue')['useAttrs']
+  const useAuditLog: typeof import('./src/composables/useAuditLog')['useAuditLog']
   const useAuth: typeof import('./src/composables/useAuth')['useAuth']
   const useAverage: typeof import('@vueuse/math')['useAverage']
   const useBase64: typeof import('@vueuse/core')['useBase64']
@@ -289,6 +294,7 @@ declare global {
   const useRafFn: typeof import('@vueuse/core')['useRafFn']
   const useRefHistory: typeof import('@vueuse/core')['useRefHistory']
   const useResizeObserver: typeof import('@vueuse/core')['useResizeObserver']
+  const useResponsibility: typeof import('./src/composables/useResponsibility')['useResponsibility']
   const useResponsiveLeftSidebar: typeof import('./src/@core/composable/useResponsiveSidebar')['useResponsiveLeftSidebar']
   const useRole: typeof import('./src/composables/useRole')['useRole']
   const useRound: typeof import('@vueuse/math')['useRound']
@@ -421,6 +427,8 @@ declare module 'vue' {
     readonly emailValidator: UnwrapRef<typeof import('./src/@core/utils/validators')['emailValidator']>
     readonly encryptMessage: UnwrapRef<typeof import('./src/utils/security')['encryptMessage']>
     readonly extendRef: UnwrapRef<typeof import('@vueuse/core')['extendRef']>
+    readonly extractErrorMessage: UnwrapRef<typeof import('./src/utils/error-mapper')['extractErrorMessage']>
+    readonly extractFieldErrors: UnwrapRef<typeof import('./src/utils/error-mapper')['extractFieldErrors']>
     readonly formatDate: UnwrapRef<typeof import('./src/@core/utils/formatters')['formatDate']>
     readonly formatDateToMonthShort: UnwrapRef<typeof import('./src/@core/utils/formatters')['formatDateToMonthShort']>
     readonly getActivePinia: UnwrapRef<typeof import('pinia')['getActivePinia']>
@@ -526,6 +534,8 @@ declare module 'vue' {
     readonly useAbility: UnwrapRef<typeof import('./src/plugins/casl/composables/useAbility')['useAbility']>
     readonly useAbs: UnwrapRef<typeof import('@vueuse/math')['useAbs']>
     readonly useActiveElement: UnwrapRef<typeof import('@vueuse/core')['useActiveElement']>
+    readonly useActivity: UnwrapRef<typeof import('./src/composables/useActivity')['useActivity']>
+    readonly useActivityOutput: UnwrapRef<typeof import('./src/composables/useActivityOutput')['useActivityOutput']>
     readonly useAnimate: UnwrapRef<typeof import('@vueuse/core')['useAnimate']>
     readonly useApi: UnwrapRef<typeof import('./src/composables/useApi')['useApi']>
     readonly useArrayDifference: UnwrapRef<typeof import('@vueuse/core')['useArrayDifference']>
@@ -543,6 +553,7 @@ declare module 'vue' {
     readonly useAsyncQueue: UnwrapRef<typeof import('@vueuse/core')['useAsyncQueue']>
     readonly useAsyncState: UnwrapRef<typeof import('@vueuse/core')['useAsyncState']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
+    readonly useAuditLog: UnwrapRef<typeof import('./src/composables/useAuditLog')['useAuditLog']>
     readonly useAuth: UnwrapRef<typeof import('./src/composables/useAuth')['useAuth']>
     readonly useAverage: UnwrapRef<typeof import('@vueuse/math')['useAverage']>
     readonly useBase64: UnwrapRef<typeof import('@vueuse/core')['useBase64']>
@@ -652,6 +663,7 @@ declare module 'vue' {
     readonly useRafFn: UnwrapRef<typeof import('@vueuse/core')['useRafFn']>
     readonly useRefHistory: UnwrapRef<typeof import('@vueuse/core')['useRefHistory']>
     readonly useResizeObserver: UnwrapRef<typeof import('@vueuse/core')['useResizeObserver']>
+    readonly useResponsibility: UnwrapRef<typeof import('./src/composables/useResponsibility')['useResponsibility']>
     readonly useResponsiveLeftSidebar: UnwrapRef<typeof import('./src/@core/composable/useResponsiveSidebar')['useResponsiveLeftSidebar']>
     readonly useRole: UnwrapRef<typeof import('./src/composables/useRole')['useRole']>
     readonly useRound: UnwrapRef<typeof import('@vueuse/math')['useRound']>

@@ -1,6 +1,10 @@
 import { refDebounced } from '@vueuse/core'
 import { UserService } from '@/services/user.service'
-import type { CreateUserPayload, UpdateUserPayload, UserItem } from '@/services/types/user.types'
+import type {
+  CreateUserPayload,
+  UpdateUserPayload,
+  UserItem,
+} from '@/services/types/user.types'
 
 export function useUserManagement() {
   const users = ref<UserItem[]>([])
@@ -24,7 +28,7 @@ export function useUserManagement() {
   const detailData = ref<any>(null)
 
   /**
-   * Fetch paginated users via UserService
+   * Fetch users list via GET /users with pagination and search query
    */
   const fetchUsers = async () => {
     isLoading.value = true
@@ -35,16 +39,19 @@ export function useUserManagement() {
         search: debouncedSearch.value,
       })
 
-      users.value = res.data.map((item, index) => ({
+      const rawItems = res.data || []
+      const startIndex = (page.value - 1) * itemsPerPage.value
+
+      users.value = rawItems.map((item, idx) => ({
         ...item,
-        index: (page.value - 1) * itemsPerPage.value + index + 1,
+        index: startIndex + idx + 1,
       }))
 
-      totalUsers.value = res.total
+      totalUsers.value = res.total || 0
     }
     catch (err: any) {
       console.error('Fetch users error:', err)
-      snackBarText.value = err?.message || 'Failed to fetch users'
+      snackBarText.value = err?.message || 'Failed to fetch users list'
       snackBarColour.value = 'error'
       isSnackbarVisible.value = true
     }
@@ -60,7 +67,8 @@ export function useUserManagement() {
     detailData.value = {
       name: '',
       email: '',
-      phoneNumber: '',
+      positionId: '',
+      roleIds: [],
       isActive: true,
     }
     isAddNewUserDrawerVisible.value = true
@@ -88,12 +96,14 @@ export function useUserManagement() {
   }
 
   /**
-   * Save user (Create or Update) sending roleIds array directly in DTO
+   * Save user (Create or Update) sending roleIds array supporting multiple roles
    */
   const submitProcess = async (formData: any) => {
     isLoading.value = true
     try {
-      const selectedRoleId = formData.roleId || formData.id_roles
+      const roleIds = Array.isArray(formData.roleIds)
+        ? formData.roleIds.map(String)
+        : (formData.roleId || formData.id_roles ? [String(formData.roleId || formData.id_roles)] : [])
 
       if (formData.id) {
         const updatePayload: UpdateUserPayload = {
@@ -102,18 +112,15 @@ export function useUserManagement() {
           email: formData.email,
         }
 
-        if (formData.phoneNumber || formData.phone) {
-          updatePayload.phoneNumber = formData.phoneNumber || formData.phone
-        }
         if (formData.positionId || formData.id_msso) {
           updatePayload.positionId = formData.positionId || formData.id_msso
         }
-        if (selectedRoleId) {
-          updatePayload.roleIds = [String(selectedRoleId)]
+        if (roleIds.length > 0) {
+          updatePayload.roleIds = roleIds
         }
 
         await UserService.updateUser(updatePayload)
-        snackBarText.value = 'Success, Update user data!'
+        snackBarText.value = 'Berhasil memperbarui data user!'
       }
       else {
         const createPayload: CreateUserPayload = {
@@ -121,18 +128,15 @@ export function useUserManagement() {
           email: formData.email,
         }
 
-        if (formData.phoneNumber || formData.phone) {
-          createPayload.phoneNumber = formData.phoneNumber || formData.phone
-        }
         if (formData.positionId || formData.id_msso) {
           createPayload.positionId = formData.positionId || formData.id_msso
         }
-        if (selectedRoleId) {
-          createPayload.roleIds = [String(selectedRoleId)]
+        if (roleIds.length > 0) {
+          createPayload.roleIds = roleIds
         }
 
         await UserService.createUser(createPayload)
-        snackBarText.value = 'Success, Add new user!'
+        snackBarText.value = 'Berhasil menambah user baru!'
       }
 
       snackBarColour.value = 'primary'
@@ -142,7 +146,7 @@ export function useUserManagement() {
     }
     catch (err: any) {
       console.error('Submit user error:', err)
-      const msg = err?.data?.message || err?.message || 'Error, Please check input values'
+      const msg = err?.data?.message || err?.message || 'Error, silakan periksa kembali data masukan'
       snackBarText.value = Array.isArray(msg) ? msg.join(', ') : msg
       snackBarColour.value = 'error'
       isSnackbarVisible.value = true
@@ -164,14 +168,14 @@ export function useUserManagement() {
       isLoading.value = true
       try {
         await UserService.deleteUser(idDelete.value)
-        snackBarText.value = 'User deleted successfully!'
+        snackBarText.value = 'User berhasil dihapus!'
         snackBarColour.value = 'primary'
         isSnackbarVisible.value = true
         await fetchUsers()
       }
       catch (err: any) {
         console.error('Delete user error:', err)
-        snackBarText.value = err?.message || 'Failed to delete user'
+        snackBarText.value = err?.message || 'Gagal menghapus user'
         snackBarColour.value = 'error'
         isSnackbarVisible.value = true
       }
@@ -182,30 +186,26 @@ export function useUserManagement() {
     idDelete.value = ''
   }
 
-  /**
-   * Open reset password confirmation dialog
-   */
   const openResetPasswordDialog = (id: string) => {
     idResetPassword.value = id
     isResetPasswordDialogOpen.value = true
   }
 
   /**
-   * Reset user password to default 12345 upon confirmation
+   * Reset user password to default (12345)
    */
   const resetPassword = async (confirm: boolean) => {
     if (confirm && idResetPassword.value) {
       isLoading.value = true
       try {
         await UserService.resetPassword(idResetPassword.value)
-        snackBarText.value = 'Password reset to default (12345) successfully!'
+        snackBarText.value = 'Password user berhasil di-reset menjadi 12345!'
         snackBarColour.value = 'primary'
         isSnackbarVisible.value = true
       }
       catch (err: any) {
         console.error('Reset password error:', err)
-        const msg = err?.data?.message || err?.message || 'Failed to reset password'
-        snackBarText.value = Array.isArray(msg) ? msg.join(', ') : msg
+        snackBarText.value = err?.message || 'Gagal me-reset password user'
         snackBarColour.value = 'error'
         isSnackbarVisible.value = true
       }
@@ -216,13 +216,12 @@ export function useUserManagement() {
     idResetPassword.value = ''
   }
 
-  // Reset to page 1 on search change
-  watch(searchQuery, () => {
-    page.value = 1
-  })
-
   watch([page, itemsPerPage, debouncedSearch], () => {
     fetchUsers()
+  })
+
+  watch(searchQuery, () => {
+    page.value = 1
   })
 
   onMounted(() => {

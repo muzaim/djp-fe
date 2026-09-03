@@ -4,9 +4,7 @@ defineOptions({
   inheritAttrs: false,
 })
 
-// const { class: _class, label, variant: _, ...restAttrs } = useAttrs()
-
-const elementId = computed (() => {
+const elementId = computed(() => {
   const attrs = useAttrs()
   const _elementIdToken = attrs.id || attrs.label
 
@@ -25,8 +23,15 @@ const label = computed(() => useAttrs().label as string | undefined)
       v-if="label"
       :for="elementId"
       class="mb-1 text-body-2 text-high-emphasis"
-      :text="label"
-    />
+    >
+      <template v-if="label.trim().endsWith('*')">
+        {{ label.trim().slice(0, -1).trim() }}
+        <span class="text-error font-weight-bold ms-1">*</span>
+      </template>
+      <template v-else>
+        {{ label }}
+      </template>
+    </VLabel>
     <VTextarea
       v-bind="{
         ...$attrs,

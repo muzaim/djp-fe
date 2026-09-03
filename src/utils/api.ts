@@ -1,8 +1,5 @@
-/* eslint-disable unused-imports/no-unused-vars */
 import { ofetch } from 'ofetch'
-
-const router = useRouter()
-const userData = useCookie<any>('userData')
+import { useAuthStore } from '@/stores/useAuthStore'
 
 export const $api = ofetch.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1',
@@ -21,7 +18,14 @@ export const $api = ofetch.create({
 
     options.headers = headers
   },
-  async onResponse({ request, response }) {
-    // Optional global response logger
+
+  async onResponseError({ response }) {
+    // 401 Unauthorized -> Token expired or invalid session
+    if (response?.status === 401) {
+      console.warn('Session expired or unauthorized (401). Opening Session Expired modal...')
+
+      const authStore = useAuthStore()
+      authStore.triggerSessionExpired()
+    }
   },
 })

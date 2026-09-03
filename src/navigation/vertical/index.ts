@@ -12,6 +12,15 @@ export const adminTI = [
 
     ],
   },
+  { heading: 'Master Data' },
+  {
+    title: 'Master Data',
+    icon: { icon: 'tabler-database' },
+    children: [
+      { title: 'Keluaran Aktivitas', to: 'master-data-keluaran-aktivitas-list', icon: { icon: 'tabler-file-check' } },
+      { title: 'Tanggung Jawab', to: 'master-data-tanggung-jawab-list', icon: { icon: 'tabler-list-details' } },
+    ],
+  },
   { heading: 'Audit Trail' },
   {
     title: 'Audit Trail',

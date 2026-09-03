@@ -114,6 +114,21 @@ export class OrgStructureService {
   }
 
   /**
+   * Fetch departments under a Division ID via GET /organization-units/departments/by-division/:divisionId
+   */
+  static async getDepartmentsByDivision(divisionId: string): Promise<OrganizationUnitItem[]> {
+    if (!divisionId)
+      return []
+
+    const res = await $api(`/organization-units/departments/by-division/${divisionId}`, {
+      method: 'GET',
+    })
+
+    const payload = res?.data || res
+    return Array.isArray(payload) ? payload : (payload?.items || [])
+  }
+
+  /**
    * Fetch positions by Division ID via GET /positions/by-division/:divisionId
    */
   static async getPositionsByDivision(divisionId: string): Promise<PositionItem[]> {
@@ -121,6 +136,21 @@ export class OrgStructureService {
       return []
 
     const res = await $api(`/positions/by-division/${divisionId}`, {
+      method: 'GET',
+    })
+
+    const payload = res?.data || res
+    return Array.isArray(payload) ? payload : (payload?.items || [])
+  }
+
+  /**
+   * Fetch positions by Department ID via GET /positions/by-department/:departmentId
+   */
+  static async getPositionsByDepartment(departmentId: string): Promise<PositionItem[]> {
+    if (!departmentId)
+      return []
+
+    const res = await $api(`/positions/by-department/${departmentId}`, {
       method: 'GET',
     })
 

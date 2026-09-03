@@ -31,16 +31,15 @@ const headers = [
   { title: 'No', key: 'index', sortable: false },
   { title: 'Name', key: 'name' },
   { title: 'Email', key: 'email' },
-  { title: 'Divisi', key: 'division' },
-  { title: 'Posisi', key: 'position.title' },
+  { title: 'Division', key: 'division' },
+  { title: 'Position', key: 'position.title' },
   { title: 'Role', key: 'role' },
-  { title: 'Aksi', key: 'actions', sortable: false },
+  { title: 'Actions', key: 'actions', sortable: false },
 ]
 
 // Safely extract division name using position.division.name
 const getDivisionName = (userItem: any) => {
   const item = userItem?.raw || userItem
-
   return item?.position?.division?.name
     || item?.position?.organizationUnit?.parent?.name
     || item?.position?.organizationUnit?.name
@@ -50,20 +49,31 @@ const getDivisionName = (userItem: any) => {
 // Safely extract position title
 const getPositionTitle = (userItem: any) => {
   const item = userItem?.raw || userItem
-
   return item?.position?.title || '-'
 }
 
-// Safely extract role name
-const getRoleName = (userItem: any) => {
+// Safely extract multiple role names
+const getRoleNames = (userItem: any): string[] => {
   const item = userItem?.raw || userItem
 
-  const roleName = item?.userRoles?.[0]?.role?.name
-    || (Array.isArray(item?.roles) ? item.roles[0] : item?.roles)
-    || item?.userRoles?.[0]?.role?.code
-    || item?.role_name
+  if (Array.isArray(item?.userRoles) && item.userRoles.length > 0) {
+    const names = item.userRoles
+      .map((ur: any) => ur.role?.name || ur.role?.code)
+      .filter(Boolean)
+    if (names.length > 0) return names
+  }
 
-  return roleName || '-'
+  if (Array.isArray(item?.roles) && item.roles.length > 0) {
+    const names = item.roles
+      .map((r: any) => (typeof r === 'string' ? r : (r.name || r.code)))
+      .filter(Boolean)
+    if (names.length > 0) return names
+  }
+
+  if (item?.role_name) return [item.role_name]
+  if (item?.roleName) return [item.roleName]
+
+  return []
 }
 </script>
 
@@ -96,7 +106,7 @@ const getRoleName = (userItem: any) => {
 
     <!-- 👉 Data Table Card -->
     <VCard :loading="isLoading">
-      <VCardText class="d-flex flex-wrap py-4 gap-4">
+      <VCardText class="d-flex flex-wrap py-4 gap-4 align-center">
         <div class="me-3 d-flex gap-3">
           <AppSelect
             :model-value="itemsPerPage"
@@ -110,9 +120,10 @@ const getRoleName = (userItem: any) => {
             @update:model-value="itemsPerPage = parseInt($event, 10)"
           />
         </div>
+
         <VSpacer />
 
-        <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
+        <div class="d-flex align-center flex-wrap gap-4">
           <!-- 👉 Search  -->
           <div style="inline-size: 14rem;">
             <AppTextField
@@ -122,7 +133,7 @@ const getRoleName = (userItem: any) => {
             />
           </div>
 
-          <!-- 👉 Add user button -->
+          <!-- 👉 Add User Button -->
           <VBtn
             prepend-icon="tabler-plus"
             @click="addData"
@@ -165,20 +176,35 @@ const getRoleName = (userItem: any) => {
           <span>{{ getPositionTitle(item) }}</span>
         </template>
 
-        <!-- Role -->
+        <!-- Role Chips (Support multiple roles) -->
         <template #item.role="{ item }">
-          <VChip
-            label
-            size="small"
-            color="primary"
-            class="text-capitalize"
-          >
-            {{ getRoleName(item) }}
-          </VChip>
+          <div class="d-flex flex-wrap gap-1">
+            <VChip
+              v-for="roleName in getRoleNames(item)"
+              :key="roleName"
+              label
+              size="small"
+              color="primary"
+              class="font-weight-medium text-capitalize"
+            >
+              {{ roleName }}
+            </VChip>
+            <span
+              v-if="!getRoleNames(item).length"
+              class="text-disabled text-caption"
+            >-</span>
+          </div>
         </template>
 
         <!-- Actions -->
         <template #item.actions="{ item }">
+          <IconBtn
+            title="Reset Password ke 12345"
+            @click="openResetPasswordDialog(item.raw?.id || item.id)"
+          >
+            <VIcon icon="tabler-key" />
+          </IconBtn>
+
           <IconBtn
             title="Edit User"
             @click="selectData(item.raw?.id || item.id)"
@@ -187,21 +213,14 @@ const getRoleName = (userItem: any) => {
           </IconBtn>
 
           <IconBtn
-            title="Reset Password"
-            @click="openResetPasswordDialog(item.raw?.id || item.id)"
-          >
-            <VIcon icon="tabler-key" />
-          </IconBtn>
-
-          <IconBtn
-            title="Delete User"
+            title="Hapus User"
             @click="updateDeleteData(item.raw?.id || item.id); isConfirmDialogOpen = true"
           >
             <VIcon icon="tabler-trash" />
           </IconBtn>
         </template>
 
-        <!-- pagination -->
+        <!-- Pagination -->
         <template #bottom>
           <VDivider />
           <div class="d-flex align-center justify-sm-space-between justify-center flex-wrap gap-3 pa-5 pt-3">
@@ -256,7 +275,7 @@ const getRoleName = (userItem: any) => {
       confirm-title="Terhapus!"
       confirm-msg="User telah berhasil dihapus."
       cancel-title="Batal"
-      cancel-msg="Penghapusan user dibatalkan."
+      cancel-msg="Penghapusan dibatalkan."
       confirm-btn-text="Ya, Hapus"
       cancel-btn-text="Batal"
       @confirm="deleteData"
@@ -265,8 +284,8 @@ const getRoleName = (userItem: any) => {
     <!-- Confirm Reset Password Dialog -->
     <ConfirmDialog
       v-model:isDialogVisible="isResetPasswordDialogOpen"
-      confirmation-question="Apakah Anda yakin ingin me-reset password user ini menjadi default (12345)?"
-      confirm-title="Reset Password!"
+      confirmation-question="Apakah Anda yakin ingin me-reset password user ini menjadi 12345?"
+      confirm-title="Password Di-reset!"
       confirm-msg="Password user telah berhasil di-reset menjadi 12345."
       cancel-title="Batal"
       cancel-msg="Reset password dibatalkan."
